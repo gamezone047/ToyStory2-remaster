@@ -1,0 +1,61 @@
+Native integration investigation, 2026-10-23
+
+UPDATE: The notes below describe the initial investigation. Subsequent tracing
+found 4a28b0 builds the render list, 4cd880 prepares per-object matrices, and
+4cdc20 draws it. CoopBridge.cpp uses an external bounded list and leaves the
+local Buzz LAST because the renderer treats the last entry specially. Each PC
+still simulates only its own player. The peer is a rendered value snapshot;
+no second host-side native player context or full authoritative world exists.
+See IMPLEMENTATION-STATUS.txt for the packaged two-player test stage.
+
+Result: no second independent playable character has been implemented.
+The existing networking tests do not establish native co-op feasibility.
+No game runtime hooks were installed by this investigation.
+
+Verified in the local toy2.exe disassembly:
+
+1. Main update 49e137 pushes 52f300 and 49e13c calls 436220.
+   Camera 405860, actor update 4086f0, pickups 4a0f80, projectiles/effects
+   4a62a0 and player/enemy contact 407440 follow in the same frame.
+   Repeating this whole sequence per player would repeat shared world updates.
+
+2. Movement 436220 accepts a player pointer, but also accesses fixed globals
+   including player flags at 52f340 and input at 52ad88. Its callees need a
+   separate audit. Passing a different struct pointer alone is insufficient.
+   ModernControls.cpp additionally keeps runSpeed, thirdYaw and thirdPitch
+   in singleton static variables; those would need per-player ownership.
+
+3. Player/enemy contact 407440 reads player xyz at 52f300/304/308 and iterates
+   actor pointers starting at 52f1d0. On contact it calls 408a60 and 4071e0.
+   This is collision/combat work, not a harmless player-render callback.
+   Any per-player repetition needs damage/side-effect and world-state ownership.
+
+4. Render entry 440f70 calls 4402b0 at 440ff4. Function 4402b0 temporarily
+   subtracts 0x2000 from player Y at 52f304, runs room logic (43fef0 or 4885c0),
+   stores player coordinates in 54d920/24/28, then restores Y at 44031d.
+   It also queries camera room from 555314 and changes global room selection.
+   Rendering is not read-only with respect to the fixed player object.
+   Never have a network worker write or sample these fields without a stable
+   game-thread boundary: even a position read can catch that temporary offset.
+
+5. 445720, called at 44129c, iterates 54deb0 and submits textured quads via
+   4b9100. It is not established as an independent animated Buzz renderer.
+   A verified player mesh/animation instance creation path is still missing.
+
+Reproduction:
+  py -3.9 controls-src\coop\audit-native.py
+This indexes direct references and selected code regions into native-audit.json.
+The script verifies the executable SHA-256 before using fixed addresses.
+It does not resolve indirect references, recursively identify all callees, prove
+function ownership, or provide a safe context-copy list. No patches are generated.
+
+Next required proof before exposing Multiplayer in the game menu:
+Create and render a second independent Buzz, with separate animation storage,
+movement state and camera ownership. Verify movement, collision, weapons and
+damage without advancing the world twice. Only then connect network input/state.
+This proof requires further reverse engineering and in-game validation; no game
+was launched because the user explicitly starts it themselves.
+
+Do not advertise online campaign support based on a lobby or duplicated model.
+Enemies, pickups, quest scripts, bosses and level transitions still need explicit
+shared-world synchronization after the independent-player proof is working.

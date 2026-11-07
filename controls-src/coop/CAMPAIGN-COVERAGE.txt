@@ -1,0 +1,40 @@
+CAMPAIGN SYNCHRONIZATION COVERAGE - 2026.11.7.3
+
+Static evidence inventory, not a gameplay certification. Counts are call sites, NOT object counts.
+The tick scan excludes indirect targets and separate actor callbacks; those need explicit review.
+
+Shared generic systems: ordinary enemy poses/health, native pickup replay, token reveal,
+pushable objects, remote player movement, pause and music. Their existence does not
+prove every level-specific actor/mechanism uses them.
+
+Level | Mechanism call sites | Script globals | Player/room reads | Specific adapter status
+ 1 | 21 | 29 | 29 | RC, shovel, attic plank, crib, Tin Robot; remaining mechanisms unaudited
+ 2 | 44 | 48 | 47 | RC, mower, duck/pump, tree fall, pop-up soldiers; other mechanisms pending
+ 3 |  5 | 24 | 13 | No dedicated level mechanism adapter; pending
+ 4 | 37 | 33 | 15 | No dedicated level mechanism adapter; pending
+ 5 | 77 | 28 | 32 | No dedicated level mechanism adapter; pending
+ 6 |  0 | 11 |  3 | No dedicated level mechanism adapter; pending
+ 7 | 39 | 16 | 38 | No dedicated level mechanism adapter; pending
+ 8 | 27 | 43 | 17 | No dedicated level mechanism adapter; pending
+ 9 |  2 | 18 | 13 | No dedicated level mechanism adapter; pending
+10 | 50 | 28 | 44 | No dedicated level mechanism adapter; pending
+11 | 27 | 19 | 13 | No dedicated level mechanism adapter; pending
+12 |  0 |  9 | 12 | No dedicated level mechanism adapter; pending
+13 | 19 | 10 | 12 | No dedicated level mechanism adapter; pending
+14 | 11 | 20 |  7 | No dedicated level mechanism adapter; pending
+15 |  4 | 13 |  4 | No dedicated level mechanism adapter; pending
+
+Remaining engineering work (not completed by this release):
+- Resolve indirect branches in levels 4, 8 and 15 and audit actor callback dispatch.
+- Map remaining level-specific fields, mesh/collider pairs, trigger conditions and rewards.
+- Give each mechanism explicit ownership and transferable state; do not copy pointers or player-local memory.
+- Add regression cases for guest-only activation, host-only activation, ownership handoff,
+  distant observers, completion, replay/reset, collision and shared reward deduplication.
+- Verify both players through every campaign level before calling campaign co-op complete.
+
+RC level 2 review evidence: actor slot 29 at 52d9ec; phase 52f2f8; node 52f668;
+RC laps 52f620; player laps 52ad64; checkpoint 52f6b0; direction 52f5e0.
+Native inclusive path bound 64 at 419430; route pointer stays local (559c74).
+Tree fall: native 41a3b1 and 41a3c7 pass Z rotation for meshes 30 and 31.
+
+Reproduce inventory: py -3.9 controls-src/coop/audit-campaign.py

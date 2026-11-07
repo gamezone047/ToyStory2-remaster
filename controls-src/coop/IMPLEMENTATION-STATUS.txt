@@ -1,0 +1,158 @@
+Version: 2026.11.7.5
+
+- Fix the backyard balance plank visual freeze introduced by restoring an old owner snapshot each tick. Native balance queues rotation for a later physics step; preserve the live collider angle instead of rewinding it before the next tick.
+- Apply each received plank revision once, preventing repeated snapshots from rewinding collision or replaying the same movement. Reset this tracking between levels.
+- Refresh both plank models from their actual collider rotation before drawing, keeping the visible surface aligned with collision.
+- Regression reproduces the old freeze with a separate queued/committed physics model and checks advancing owner rotation, observer movement, duplicate packets and rendered angles. Static native signatures verified. Offline checks only; live two-player confirmation remains required.
+- Includes all 2026.11.7.4 changes. Both players should update. No game launched, installed runtime changed or GitHub publication performed.
+
+Version: 2026.11.7.4
+
+- Fix stale RC racing snapshots overriding a newer finished/reset state. New claims use a newer revision; unchanged idle snapshots no longer increase revision indefinitely.
+- On race completion/loss, the race owner restores the prior background track. Observers follow that music event and cannot republish their stale race music.
+- Add dedicated replication for BOTH backyard weight-driven balance planks (collider/mesh 0 and 1), distinct from the previously patched falling plank. Transfer rotation, angular momentum and collision movement; the player in contact owns simulation, host breaks simultaneous ties.
+- Co-op completed levels 1 through 14 now request a shared direct transition to the next level via native cleanup, skipping intervening token summary/save/load/level-selection flow. Final campaign ending stays native. Single-player menus and autosave remain unchanged.
+- Both players must update: wire v15 / IPC v14, 5408-byte frames. Offline native/controls/network/signature/package checks pass; live two-player validation remains pending. No automatic game launch or publishing.
+
+Version: 2026.11.7.3
+
+- Extend RC race sharing to Backyard (level 2), using its own path/lap/checkpoint fields and inclusive node 64 limit. Preserve House counters. Share race ownership, pose, motion, collision/push handling and observer smoothing; prevent RC from entering ordinary enemy retirement.
+- Includes the tree plank rotation correction from 2026.11.7.2.
+- Both players must update: wire v14 / IPC v13. Native/managed bounds, guest-start/observer race regression and native signatures pass; live race testing remains pending.
+- Added a reproducible static audit of all 15 campaign level-tick control flows. This is an evidence inventory, not completed synchronization: indirect branches, actor callbacks, bosses and level-specific mechanisms still need mapping and adapters. Do not claim full campaign synchronization.
+- No game launched, installed files changed or release published. Runtime package verified separately.
+
+Version: 2026.11.7.2
+
+- Correct the backyard tree plank mesh rotation axis. The previous adapter rotated mesh 30 around X while native meshes 30 and 31 both rotate around Z; this made the visible plank disagree with shared progress and collision.
+- Apply the correct pose during falling and when an observer receives the completed state. Preserve the native collider 11-to-12 transition.
+- Regression fails with the old axis and passes with the correction; native executable argument order is verified. Native/network/package checks passed. Live two-player confirmation is still required; no game launched.
+- Update both players for the visual correction. Co-op remains experimental.
+
+Version: 2026.11.7.1
+
+- Backyard mower: slot 0/model 12/health 101 has a dedicated value-only host pose/motion adapter, native animation validation and activation near either player. Guest skips its independent AI; native special health is preserved.
+- Duck/pump: whitelist ten script values; contact selects simulation owner, host breaks ties. Reconcile mesh scale, position and collider pending movement to carry riders, with absolute correction only for deltas outside native short bounds. Tree plank merges one-way fall progress and updates both mesh rotations and collider enable states.
+- Wire v13 / IPC v12, 5368-byte frames. Bounded native/managed validators and golden-frame tests cover new fields; both players must update.
+- Console level travel is a session event surviving per-level resets. Native exit reason 6 leads through ordinary cleanup to the level-selection table. Backtick input is consumed; unstuck checks ground and body clearance and detaches rope state. Space uses the native jump-off state independent of attachment cooldown. The exact user-reported rope freeze remains unconfirmed without live reproduction.
+- Offline controls, native regression, managed loopback/IPC and static binary checks passed. No automatic game launch. These level-two adapters do not establish complete campaign synchronization.
+
+Version: 2026.11.5.1
+
+- RC contact uses the native collision pass on both players, with bounded candidate-list insertion/restoration and synchronized collision-enable bit. Guest native push impulses are forwarded once to RC's simulation owner; race state stays under its existing authority. Share idle RC state too, and prioritize a new race claim over idle snapshots. Use the collision pose for nearby rendering, keeping buffered smoothing at a distance.
+- Backyard pop-up army is model 13 / slot 4 / health 102 (confirmed from the native decompressed level02 actor block), not an ordinary enemy. Share its hole, previous hole, timer, pose, animation, motion and completed-hole mask. Host advances emergence; guest native hole completion is merged. Activate near either player and let a nearby guest trigger retreat. Preserve collection/removal and local pointers.
+- Both players must update: wire v12 / IPC v11, 5216-byte frames. Older clients are rejected.
+- Offline native regressions cover RC candidate capacity, duplicate push suppression, race claim priority; pop-up timing/hole state, guest completion union, six-hole completion, peer proximity and collected-actor suppression. Managed TCP/IPC/ABI and static opcode checks pass. No game launched; live RC contact and backyard puzzle testing remains required. This does not establish complete campaign synchronization.
+
+Version: 2026.10.24.13
+
+- Fix the attic balance plank freezing when only the guest is in room five. Native balance simulation is room-gated, while previous ownership defaulted to the host before physical contact.
+- Share validated player room/plank-contact context. Prefer a player standing on the plank, otherwise a player in the attic; host breaks simultaneous ties. Transfer simulation before contact so the guest can reach the plank while the host is elsewhere.
+- Continue unloaded native tilt once per tick when the room-gated update was skipped and neither player is in the attic. Preserve local room/player state and do not invoke attic boss triggers. Share both mesh rotation and collider state.
+- Both players must update: wire v11 / IPC v10, 5112-byte frames.
+- Regression tests cover guest-alone entry, distant-host observer, contact priority, ownership transfer, unloaded fallback, no double update and ABI validation. Offline checks only; live attic traversal remains to be confirmed. This fixes the attic adapter, not every remaining campaign mechanism.
+
+Version: 2026.10.24.12
+
+- Fix remote sheep/quest pickup crash confirmed by the client exception log: c0000005 at toy2.exe+615f, actor 52ca14. Native mode-2 removal assumes membership in 52f1d0's active list and scans without checking its terminator.
+- If a remotely removed actor is absent, supply a temporary single-actor list for native removal and restore all 65 original candidate slots afterward. Existing members retain normal native removal. Applies to shared quest pickups and remote Tin Robot retirement; collection remains deduplicated.
+- Offline regression covers empty/full active lists, absent sheep, list preservation and duplicate pickup suppression. Native opcode verification, IPC/TCP and package verification pass. No game launched; live pickup confirmation remains required.
+
+Version: 2026.10.24.11
+
+- Replace the 32767 range override with post-cull activation repair for ordinary enemies near either player. Native range-square overflow and host room/frustum gating no longer discard these candidates. Keep bounded lists and normal draw distances.
+- Redirect ordinary enemy AI target-coordinate reads to per-enemy host/guest target selection, with alive checks and switching hysteresis. Do not overwrite the actual local player actor. This is chase/aim target selection, not complete shared projectile/contact-damage authority.
+- Persistent diagnostics in %LOCALAPPDATA%\ToyStory2\Diagnostics: host/client session, previous-session, crash and launcher logs. Native exception reports include build, phase, actor, player state, fault/module/offset, registers and stack words. Severe first-chance reports are labeled and do not suppress Windows exception handling.
+- Launcher records game exit codes, network-bridge exceptions and missing native heartbeats. Temporary local-test cleanup does not remove diagnostics. Session/launcher logs are size bounded; crash reports retain the latest per role.
+- Offline targeting/activation regressions, deliberate handled-exception logging test, static native signatures, real TCP/IPC and package verification. No live game test performed.
+- Existing host failure was not conclusively diagnosed: Windows showed AppHangTransient without an exception address. Do not claim the previous crash is fixed.
+
+Version: 2026.10.24.10
+
+- RC observer presentation now uses a 100 ms snapshot buffer. Race and collision state remain authoritative; rendering overrides are restored after drawing.
+- Replicate token reveal flags through the native reveal operation across ordinary campaign levels. Suppress duplicate reveals and collected-token reveals. Preserve boss-stage completion bit when merging progress.
+- Keep ordinary enemies simulating within the visible range of either player, with a two-second boundary grace period. Share enemy animation clips/frames for observer rendering using model-local asset bounds.
+- Reduce nameplate scale/padding, remove the heavy frame, thin the health bar and reduce background opacity. Hide the label when a world-geometry ray to the remote head is blocked.
+- Both players must update: wire v10 / IPC v9, 5108-byte frames.
+- Offline native, ABI, TCP and package checks only. Live appearance and garage/enemy behavior need verification.
+- Common synchronization paths apply across levels, but complete campaign co-op is NOT implemented. Remaining boss scripts, unique mechanisms and coordinated transitions need verified adapters. See controls-src/coop/CAMPAIGN-COVERAGE.txt.
+
+CURRENT STATUS - 2026.10.24.8
+Wire v8 / IPC v7. Frame 4180, mapping 8376; CoopPlatform at 4160 (20 bytes). Andy's House room 5 calls 0x49ec00 at 0x4183ba with collider/mesh 15, limit +/-448, divisor 8, velocity at 0x52f58c. Collider stride 0x34, raw roll +0x10, pending roll delta +0x24; dirty flag bit8. Native mesh sync 0x488bd0. Contact uses the native ground and collider-contact tests. Local contact edge claims ownership, revision/owner ordering resolves conflicts; observer applies in every room. Simultaneous-player weight is not combined.
+Tin Robot observer uses a separate 100ms render history; only render prefix fields overridden from PrepareRender to DrawRender, then restored. Damage/AI authority is unchanged. Other physical mechanics and boss adapters still need individual mapping.
+
+CURRENT STATUS - 2026.10.24.7
+Live read-only inspection found model-4 actors in both render lists, including entries without flag bit 0. Native DrawRender at 0x4cdc5e tests that bit and skips drawing if clear. BeginEnemyRender/EndEnemyRender temporarily enable it for live ordinary enemies in the final list, preserving flags outside the draw call. Regression tests and native opcode verification pass; visual confirmation of the rebuilt plugin is pending.
+
+CURRENT STATUS - 2026.10.24.5
+Render-list repair after pose reconciliation uses native camera offsets and draw-radius arithmetic. Missing live ordinary enemies are inserted without duplicates, with 64-object capacity and local Buzz last. Dead actors stay excluded. Offline regression verified; user multiplayer visual validation pending.
+
+CURRENT STATUS - 2026.10.24.4
+Wire v7, IPC v6. 4160-byte frames; 8336-byte mapping. CoopEnemy[64] appended at 2112, stride 32.
+Host supplies ordinary enemy transforms/health; guest native contact/damage checks still run, with host transforms reapplied before/after update passes and before render-list construction. This is transform reconciliation, not complete enemy script replication. Targeting/animations/projectiles remain native/local. Ordinary enemies are model-matched actor slots with initial HP 1..79; special actors are excluded. Tin Robot retains its own adapter. Peer proximity temporarily expands host AI activation but restores native range fields before rendering.
+New damage counters are monotonic, model-matched and consumed once by the host. Local/native death bits take precedence over interpolation and prevent resurrection. Remote transforms are never trusted on the host.
+
+CURRENT STATUS � 2026.10.23.15
+
+Wire v6, IPC v5. 2112-byte frames; 4240-byte mapping.
+New fields: actorCollections[2] at 1988; CoopBoss (116 bytes) at 1996.
+All ten quest collection call sites are signature-checked. They increment 52b7d8 and retire a health-102 actor via 405d20(mode2). Hook records a stable actor slot; remote replay awards once/removes it. Existing pickup-slot replay remains unchanged.
+Book path validation now accepts node<count rather than node+1<count. Isolated level-one inspection: path4 has 3 points; book slot3 advances 0->2 on falling. Native minimum/final-node handling prevents further pushes; native code itself reads the adjoining path metadata when finalizing.
+Tin Robot adapter is deliberately level1/actor8/model5 only. Its phase is 52f578; 52f2f8 is RC race state and must NOT be treated as generic boss activation. BossSync.h serializes value fields and local-command offsets (base from 4e02d8), never pointers. First activator owns simulation; host wins simultaneous competing ownership. Guest HP reductions become deduplicated cumulative requests. Rendering can include the remote-owned boss outside the local activation list.
+Boss animation bounds verified against tinman.anm: 8 clips, [24,24,24,24,24,6,8,16] frames.
+Remote pose presentation uses a 100 ms receive-time buffer; no speculative extrapolation through geometry. Capture world camera transforms before HUD drawing for the nameplate.
+Main controls camera reconstructs desired mouse orbit, uses center/near-plane edge world rays, snaps inward and damps outward. It no longer consumes the native collision-adjusted endpoint.
+
+Unfinished requested work: general scripted interaction replication, all remaining boss adapters, full campaign synchronization. Two-PC Tin Robot/camera/nameplate/book acceptance is pending. Offline passing tests do not establish full gameplay synchronization.
+
+Historical implementation detail follows (older limitations superseded only where stated above):
+
+CURRENT STATUS — 2026.10.23.14
+
+Experimental two-player native bridge. Internet host/join was successfully tested by the user
+on two PCs after Windows Firewall TCP 27922 and router forwarding were configured.
+
+Protocol: TCP wire v5; native IPC v4. Value-only 1988-byte frames, 3992-byte mapping.
+The native game thread reads/writes gameplay state. The network worker only handles validated snapshots.
+
+New in .14:
+- Append scriptFlags at 1984: bits 0/1 latch level-one crib actor slots 0/2 hit events.
+  Native level script 417680 recognizes health != 80, animates targets, opens collider 9
+  and lowers meshes 13/14/1a. Replay damage once, not generic death or duplicated laser damage.
+- Share category -1 (Mr Potato Head parts): native dispatch 4a165b negates 830d48.
+- Native world view A4C3D0 and projection A4C290 determine white nameplate screen position.
+- Level tick 49e181 fallback advances pushable physics if walking call 436a78 was skipped.
+- Skip legacy minimum-distance lift 4057ee during mouse-controlled camera; keep wall sweeps.
+- User-local multiplayer preferences; direct co-op entry goes through portable update flow.
+
+New in .13:
+- Native pickup entry 4a11be can replay a validated remote slot without proximity; award hook
+  4a1257 records collection generations. Categories 0..10 except information cube 4, and
+  non-model coin category 16 are shared through the original native handlers. Includes
+  respawning power-ups, not just permanently removed slots. Unknown script categories excluded.
+- Append 512 unsigned-short pickup generations at byte offset 960. Keep existing offsets.
+- Merge current-level token flags (52f0d7 + level), not an independently guessed HUD count.
+- Scale native font-sheet 14 sprites and alpha by distance; collision no longer steers mouse orbit.
+- Claim push ownership after native contact discovery as well as before continuing a push.
+
+Existing functionality:
+- Automatic first-level start through native initialized menu flow.
+- Peer nickname, remote Buzz pose/animation interpolation.
+- Deduplicated pre-placed coins and enemy coin drops (actor-slot identities).
+- Laser visual event ring; native ordinary enemy death start rather than immediate deletion.
+- Pushable table at 53c680 (ten 40-byte entries, count 53c65c). Mutable position/direction,
+  fall and push progress/path node are serialized; native path IDs must match and nodes are checked.
+  Native mesh 4cce30 and collision 488510 updates keep both representations aligned.
+  Per-object revisions and pusher ownership prevent two copies advancing the same fall.
+
+Not implemented: host-authoritative enemy AI/targeting/partial damage, NPC quest side effects,
+switches, general moving platforms, boss scripts, shared progression/level transitions,
+four-player native gameplay or reconnect. Do not advertise full campaign co-op.
+
+Validation: build-native.cmd, build-test.cmd, verify-native.py, main controls tests and package verifier.
+Expanded native/managed ABI, actual TCP transport and separate-process IPC pass. Mock-native tests
+exercise drops and object state/mesh/collider reconciliation; they are not a live gameplay test.
+User must validate the release with two PCs. No game is automatically launched or installed.
+
+Builds are staged from the latest release ZIP, packaged by package-release.ps1, then published only
+when the user runs the Desktop publishing BAT. Historical install-main.ps1 is not the release workflow.

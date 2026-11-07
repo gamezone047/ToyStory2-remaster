@@ -1,0 +1,61 @@
+2026.10.24.8: Update both players. In Andy's House attic, have Player 2 walk along the balance plank while Player 1 watches, then swap roles. Verify rotation and footing on both PCs, leave/re-enter the room, and switch ownership by stepping onto the plank. Watch Tin Robot from the non-owning player: motion should interpolate, with correct attack/defeat state. Simultaneous weight from two riders is not combined.
+
+2026.10.24.5 visibility regression: On both updated PCs, approach the same jumping and flying enemies from different directions. Verify both see the live enemies within draw distance; move away/back, then kill one and ensure it stays gone. Repeat in the two-instance local test.
+
+ENEMY MOVEMENT TEST - 2026.10.24.4
+Both players must update. In Andy's House compare the red jumping enemies while one player stands still and the other approaches. Compare patrol positions, jumps and facing; a small network delay is expected. Move the joining player away from the host and confirm nearby enemies keep moving. Shoot the same enemy from either PC and verify shared health, a single death/drop, and no resurrection. Recheck NPC/sheep collection and crib targets remain on their specialized synchronization paths.
+Enemy animation phases, targeting and projectiles still need further synchronization; this update shares ordinary enemy transforms and health.
+
+LOCAL TWO-PLAYER TEST - 2026.10.24.1
+Open Multiplayer, then Test two players on this PC.
+Wait for two temporary 960x540 windowed games to load Andy's House.
+Player 1 hosts; Player 2 joins 127.0.0.1 on an automatically selected TCP port.
+Alt-Tab to switch which player you control. The other game remains connected.
+Close both games/lobbies to remove temporary copies. Closing the parent lobby stops both test games.
+This uses temporary disk space for two runtime copies; settings and saves in the installed game are untouched.
+A forced launcher termination may leave a Toy2-local-coop-* folder in Windows Temp; remove it only after both test games have exited.
+This checks game synchronization locally, not Internet latency or public connectivity.
+
+TWO-PLAYER SYNCHRONIZATION TEST — 2026.10.23.15
+
+Update both PCs. Keep both lobbies open. Host starts once both names appear.
+Start Game should enter Andy's House without either player choosing New Game.
+
+Test in both directions (host acts first, then joining player):
+1. Look at the other Buzz: nickname should follow above the head while turning the camera.
+2. Fire single and repeated lasers: the other player should see beam visuals.
+3. Kill an ordinary enemy: the other player should see its native death effect, not silent deletion.
+4. Collect the dropped coin: both coin totals should increase once. Also try approaching the same drop together.
+5. Push the book off the table: both PCs should see it move/fall, and both should collide with its new position.
+6. Collect ordinary pre-placed coins simultaneously: totals should still agree.
+7. Collect a Pizza Planet token on each PC in turn: both aim HUD counters must agree and the token must disappear on both PCs.
+8. Collect quest items, health, lives and power-ups in both directions; verify the native reward on both PCs. Revisit a respawned power-up and collect it again.
+9. Walk away from the other Buzz: the nickname should shrink and fade out. Approach again to restore it.
+10. Stand beside a wall and turn the camera against it: no repeated sideways orbit wobble or wall penetration.
+11. Check single-player startup and controls remain unchanged.
+
+These are offline-tested implementation changes, not a confirmed two-PC gameplay pass.
+Enemy AI positions/targeting/partial damage, NPC quest effects, switches, general moving platforms,
+boss scripts other than the Tin Robot adapter and level transitions remain independent. Full campaign synchronization is unfinished.
+The book belongs to a native pushable table; other scripted interaction types need their own adapters.
+Only two players are supported. Do not use this build for a full synchronized campaign yet.
+
+Specific .14 regressions (test each PC as the acting player):
+- Push the red book, switch to aim while it falls, and verify the complete fall on both PCs.
+- Shoot one crib target from each PC; both targets and the dropped side must agree.
+- Collect the ear: it disappears and inventory updates on both PCs.
+- Check white nickname alignment above Buzz while turning, jumping and moving away.
+- Reproduce the wall shake at the position in the third recording.
+- Close/reopen Multiplayer and verify nickname and host IP are retained.
+- Multiplayer should check for updates before opening a lobby, including direct co-op EXE entry.
+
+Specific .15 checks (both PCs must run .15; older protocol is incompatible):
+- Pick up each sheep on either PC, then try the same sheep simultaneously. Counts must agree without duplication.
+- Push the red book all the way off the table; wait for landing. Both mesh AND collision must match on both PCs.
+- Move and jump under uneven Internet latency: remote Buzz should move smoothly with roughly 100 ms presentation delay.
+- Check nickname alignment at several camera angles; verify white text shrinks/fades with distance.
+- Stand against a wall and rotate the camera at several angles. Check inward clearance and smooth outward recovery.
+- Have the joining player trigger Tin Robot while the host watches from a distance, then repeat with host initiating.
+- Damage Tin Robot alternately and simultaneously; verify position, animation, health, defeat and reward on both PCs.
+- Keep ordinary-enemy deaths, crib target hits, ear, Pizza Planet tokens and dropped coins in the regression test.
+- Other bosses and unadapted scripted mechanisms are still pending; report the level/object rather than assuming universal synchronization.

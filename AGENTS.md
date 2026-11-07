@@ -1,0 +1,14 @@
+# Project delivery
+
+- Never launch the game automatically. Build and offline tests are allowed.
+- Never deploy updates into the installed game folder. The user updates that installation exclusively through the launcher. Do not overwrite its executables, plugins, assets, configs, manifest or version.txt. Edit development sources only and compile into a separate staging directory. Use the latest released ZIP as the staging baseline (the installed game may be older).
+- For every delivered game update, increment the four-part version and run `controls-src/package-release.ps1 -Version <version> -BuildRoot <staged-game-folder>` after building and testing. This updates only staging metadata and creates the ready-to-share ZIP and checksum in `release/`.
+- Do not upload, push or publish to GitHub automatically. Prepare and verify the release ZIP locally. The user decides when it is ready and runs the Desktop publishing BAT. That script publishes to `gamezone047/ToyStory2-remaster` with tag `v<version>`, using a draft until ZIP/checksum verification succeeds. The updater consumes release assets, not Git source files.
+- Package only runtime files. Never include saves, credentials, logs, old archives, source/build artifacts, or the release directory inside a release ZIP. Preserve user settings and saves during updates.
+- The user's Desktop BAT invokes `controls-src/publish-latest.ps1`, which calls `publish-release.ps1` to verify assets, publish the new GitHub release, then remove older versioned releases and their tags. Do not invoke these scripts yourself unless the user explicitly asks to publish that build. Never remove the currently published release before its replacement is verified and live.
+- Retain only the latest local release ZIP and checksum. The packaging script removes older versioned archives only after the new package passes verification. Keep mod source and tests for maintenance; remove temporary staging, generated test files and intermediate binaries after delivery. No permanent duplicate game folder.
+- Co-op remains an experimental two-player first-level prototype. Do not describe it as complete campaign multiplayer or claim external network reachability without a successful external connection.
+
+- Player-facing distribution is the standalone release/Toy.Story.2.Launcher.exe. Keep the latest ZIP/checksum as automatic-install payloads in the separate gamezone047/ToyStory2-remaster-files repository. The main repository release contains only the standalone EXE. Publish only through the user-triggered publishing script, which creates the public files repository if necessary. Old ZIP-based updaters require a one-time standalone EXE download. The launcher artwork is embedded; no adjacent files are required. Advance PortableInstall.cs AssemblyVersion with each launcher update so copied launchers adopt newer installed versions.
+
+

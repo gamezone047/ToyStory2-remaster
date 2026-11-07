@@ -8,9 +8,13 @@ Download **Toy.Story.2.Launcher.exe** from the latest release and save it anywhe
 
 Choose **Multiplayer** to Host or Join. The host can **Copy IP**, and the joining player can **Paste IP**. Hosting requires inbound TCP **27922**. The optional hosting setup button configures a program-specific Windows Firewall rule and attempts router UPnP; that setup requires administrator approval. If UPnP is unavailable, forward that port manually to the host PC's LAN address. Carrier-grade NAT may prevent direct hosting; a shared VPN can be used instead. A successful connection from another network is required to verify Internet reachability.
 
-**Current co-op status:** experimental two-player first-level prototype. Remote player movement, shared coins and ordinary enemy deaths are implemented. Enemy positions, quests, tokens and campaign transitions are not synchronized. Full campaign co-op and four-player support are not ready. See `Multiplayer.txt` in the installed game folder for test instructions and limitations.
+**Current co-op status:** experimental two-player co-op. Shared movement, pickups, ordinary enemies and selected level-specific mechanisms are implemented. Full campaign synchronization and four-player support remain unfinished. See controls-src/coop/IMPLEMENTATION-STATUS.txt and CAMPAIGN-COVERAGE.txt for current limitations.
 
 Builds are distributed through this repository's **Releases**, not Git file storage. Personal saves and development artifacts are excluded.
 
 
 
+
+## Source development
+
+Custom mod and launcher sources are in [controls-src](controls-src/). See [DEVELOPMENT.md](DEVELOPMENT.md) for prerequisites, builds, tests and collaboration. Original game runtime assets are distributed separately and are not included in this source checkout.
