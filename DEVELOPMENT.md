@@ -8,7 +8,7 @@ This repository contains the custom launcher, updater and native mod/plugin sour
 - Visual Studio 2017 Community with the x86 C++ toolchain. Native build scripts currently reference its standard installation path; adjust that path if using another installation.
 - .NET Framework compiler at `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
 - Python 3.9 for binary analysis, with `pefile` and `capstone` installed (`py -3.9 -m pip install pefile capstone`).
-- A separate local game installation or verified release ZIP. Original executable/data are not stored in Git. Binary inspection and some tests require `toy2.exe` and `data/` at the checkout root. Copy these from your own local baseline; they are ignored by Git. Never run build/deployment scripts against your installed game directory.
+- A separate local game installation or verified release ZIP. The verified 2026.11.7.5 runtime is now included via Git LFS. Install Git LFS before cloning and run `git lfs pull` to fetch the actual binary content. Binary inspection and some tests require these files at the checkout root. Never run build/deployment scripts against your installed game directory.
 
 Run all commands from the repository root:
 
@@ -31,10 +31,24 @@ Outputs are under `controls-src/build-output/` and `controls-src/coop/`, not ins
 controls-src/package-release.ps1 -Version <new-version> -BuildRoot <staging-folder>
 ```
 
-Packaging creates a local archive and verifies it with the updater. Publishing is a separate, explicit action through the owner's Desktop BAT. Do not run publishing/network setup scripts for routine source development. Never commit saves, credentials, runtime files or generated binaries.
+Packaging creates a local archive and verifies it with the updater. Publishing is a separate, explicit action through the owner's Desktop BAT. Do not run publishing/network setup scripts for routine source development. Never commit saves, credentials or generated development binaries. Runtime updates should come from a verified staged build, with updated manifests.
 
 ## Collaboration
 
 Clone this repository and create a feature branch for each change. Your friend can fork the public repository and submit pull requests, or the repository owner can grant collaborator access in GitHub settings. No collaborator invitation is sent by this source upload.
 
 See `controls-src/coop/IMPLEMENTATION-STATUS.txt`, `CAMPAIGN-COVERAGE.txt` and `ReleaseNotes.txt` for current limitations and completed work. Native tests are offline approximations; both players must still validate behavior in-game.
+
+## Clone the complete game and source
+
+```bat
+git lfs install
+git clone https://github.com/gamezone047/ToyStory2-remaster.git
+cd ToyStory2-remaster
+git lfs pull
+git lfs fsck
+```
+
+Use Git clone with Git LFS, rather than GitHub's source ZIP, to obtain a complete working copy. The committed runtime baseline is 2026.11.7.5; saves are deliberately excluded. Git LFS storage and bandwidth usage applies to binary uploads/downloads.
+
+For changes, create a branch, edit sources, build into staging, test, then commit and push. A collaborator with write access can push branches; otherwise use a fork and pull request. Git pushes do not publish launcher updates: the existing publishing BAT remains the release mechanism.

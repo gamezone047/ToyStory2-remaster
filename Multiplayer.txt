@@ -1,0 +1,108 @@
+PLANK VISUAL FREEZE CORRECTION - 2026.11.7.5
+Preserves the balance plank angle after native physics applies movement, avoids replaying repeated network updates, and refreshes the visible planks from their collider angles before drawing. Both players should update and reload level 2. Walk across the plank as host, then as guest, and compare the visible surface with Buzz's feet. Offline regression reproduces the old freeze and passes with the correction; live confirmation is pending.
+
+CO-OP UPDATE - 2026.11.7.4
+Both players must update. Fixes stale RC race resets and race music, and adds sharing for the two weight-driven backyard balance planks. Completed co-op levels now transition directly to the next level without save/load or level-selection prompts; final ending stays native. Offline checks passed; live testing remains required. Test losing/restarting RC as each player, walking on both planks while the other watches, and collecting level one's fifth token to enter level two together.
+
+BACKYARD RC UPDATE - 2026.11.7.3
+Both players must update. The backyard RC car now shares race state, movement and collision using the level-two route. Test starting the race as guest and then as host, with the observer watching the car. Includes tree plank correction. Offline checks passed; live verification pending. Campaign-wide mechanism synchronization remains incomplete.
+
+TREE PLANK CORRECTION - 2026.11.7.2
+Corrects the tree plank rotation axis so both visible parts follow the shared fall and native collision state. Update both players and reload level 2. Test pushing it while the other player watches, then swap roles. Offline checks passed; live confirmation remains pending.
+
+BACKYARD AND CONSOLE UPDATE - 2026.11.7.1
+Both players must update. The lawnmower, pool duck/pump and falling tree plank now have dedicated synchronization. These changes passed offline checks; live co-op testing is still required.
+Press the backtick key (`) during gameplay to open the console. Type lvl1 through lvl15 and press Enter to change levels for both players. Type unstuck to move only your own Buzz to nearby clear ground. Escape closes the console. Space jumps off a rope even if its attachment cooldown is stuck.
+Test the duck and tree plank with the host far away, then swap roles. Co-op remains experimental; complete campaign synchronization is not claimed.
+Version: 2026.11.5.1
+
+- RC contact uses the native collision pass on both players, with bounded candidate-list insertion/restoration and synchronized collision-enable bit. Guest native push impulses are forwarded once to RC's simulation owner; race state stays under its existing authority. Share idle RC state too, and prioritize a new race claim over idle snapshots. Use the collision pose for nearby rendering, keeping buffered smoothing at a distance.
+- Backyard pop-up army is model 13 / slot 4 / health 102 (confirmed from the native decompressed level02 actor block), not an ordinary enemy. Share its hole, previous hole, timer, pose, animation, motion and completed-hole mask. Host advances emergence; guest native hole completion is merged. Activate near either player and let a nearby guest trigger retreat. Preserve collection/removal and local pointers.
+- Both players must update: wire v12 / IPC v11, 5216-byte frames. Older clients are rejected.
+- Offline native regressions cover RC candidate capacity, duplicate push suppression, race claim priority; pop-up timing/hole state, guest completion union, six-hole completion, peer proximity and collected-actor suppression. Managed TCP/IPC/ABI and static opcode checks pass. No game launched; live RC contact and backyard puzzle testing remains required. This does not establish complete campaign synchronization.
+
+ATTIC PLANK UPDATE - 2026.10.24.13
+Both players must update. Keep the host downstairs while the guest enters the attic: the wooden balance plank should tilt normally before the guest touches it. Step onto it and compare rotation/collision on both PCs. Then swap roles and leave the attic with both players. Offline tests passed; live traversal still needs confirmation.
+
+CO-OP PICKUP CRASH FIX - 2026.10.24.12
+Update both players. Collect a sheep while the other player is far away or in another room. Both quest totals should increase once without a crash. Off-screen native removal is now guarded. Offline tests passed; live confirmation remains required.
+
+CO-OP TEST UPDATE - 2026.10.24.11
+Both players should update. Separate into different rooms: enemies near either player should continue simulating. Approach the same ordinary enemy from opposite sides to compare chase/aim target selection. Target switching has a small distance margin to avoid flickering between players.
+Persistent diagnostic files are in %LOCALAPPDATA%\ToyStory2\Diagnostics. Host and client have separate session, crash and launcher logs. These survive temporary local-test cleanup. Crash reports include exception addresses and last native phase; launcher logs record missing heartbeats and game exit codes. The previous host hang/crash has not been conclusively diagnosed.
+Changes passed offline tests; live acceptance is still required. Projectile/contact-damage authority and full campaign synchronization remain incomplete.
+CO-OP TEST UPDATE - 2026.10.24.10
+Both players must update. Compare RC movement while racing. Earn a token without collecting it: it should appear on both PCs. Watch the red jumping robots while either player moves to the edge of the draw range. Compare enemy animations. Check the compact nickname and health bar above the remote Buzz and move behind a wall: the label should disappear.
+These changes have offline tests, but need live gameplay verification. Common native synchronization covers multiple levels; unique mechanisms, other boss scripts and coordinated campaign transitions are NOT fully synchronized. This remains an experimental two-player prototype.
+GARAGE AND PLAYER STATUS TEST - 2026.10.24.9
+Both players must update. In Andy's House test the RC race with each player initiating it in turn. Compare RC position/animation and race music. Trigger the garage shovel and compare its visible position and collision surface.
+Press Escape on either PC: both should pause; resume on either PC. Take damage and compare Buzz flashing and the health bar below the framed nickname. Turn and move the camera to check that the label remains above the remote player's head.
+These changes passed offline checks; these live checks are still required. Music selection is shared, not exact playback position.
+
+ENEMY MOVEMENT TEST - 2026.10.24.4
+Both players must update. In Andy's House compare the red jumping enemies while one player stands still and the other approaches. Compare patrol positions, jumps and facing; a small network delay is expected. Move the joining player away from the host and confirm nearby enemies keep moving. Shoot the same enemy from either PC and verify shared health, a single death/drop, and no resurrection. Recheck NPC/sheep collection and crib targets remain on their specialized synchronization paths.
+Enemy animation phases, targeting and projectiles still need further synchronization; this update shares ordinary enemy transforms and health.
+
+LOCAL TWO-PLAYER TEST - 2026.10.24.1
+Open Multiplayer, then Test two players on this PC.
+Wait for two temporary side-by-side windowed games to load Andy's House.
+Player 1 hosts; Player 2 joins 127.0.0.1 on an automatically selected TCP port.
+Alt-Tab to switch which player you control. The other game remains connected.
+Close both games/lobbies to remove temporary copies. Closing the parent lobby stops both test games.
+This uses temporary disk space for two runtime copies; settings and saves in the installed game are untouched.
+A forced launcher termination may leave a Toy2-local-coop-* folder in Windows Temp; remove it only after both test games have exited.
+This checks game synchronization locally, not Internet latency or public connectivity.
+
+TWO-PLAYER SYNCHRONIZATION TEST ? 2026.10.23.15
+
+Update both PCs. Keep both lobbies open. Host starts once both names appear.
+Start Game should enter Andy's House without either player choosing New Game.
+
+Test in both directions (host acts first, then joining player):
+1. Look at the other Buzz: nickname should follow above the head while turning the camera.
+2. Fire single and repeated lasers: the other player should see beam visuals.
+3. Kill an ordinary enemy: the other player should see its native death effect, not silent deletion.
+4. Collect the dropped coin: both coin totals should increase once. Also try approaching the same drop together.
+5. Push the book off the table: both PCs should see it move/fall, and both should collide with its new position.
+6. Collect ordinary pre-placed coins simultaneously: totals should still agree.
+7. Collect a Pizza Planet token on each PC in turn: both aim HUD counters must agree and the token must disappear on both PCs.
+8. Collect quest items, health, lives and power-ups in both directions; verify the native reward on both PCs. Revisit a respawned power-up and collect it again.
+9. Walk away from the other Buzz: the nickname should shrink and fade out. Approach again to restore it.
+10. Stand beside a wall and turn the camera against it: no repeated sideways orbit wobble or wall penetration.
+11. Check single-player startup and controls remain unchanged.
+
+These are offline-tested implementation changes, not a confirmed two-PC gameplay pass.
+Enemy AI positions/targeting/partial damage, NPC quest effects, switches, general moving platforms,
+boss scripts other than the Tin Robot adapter and level transitions remain independent. Full campaign synchronization is unfinished.
+The book belongs to a native pushable table; other scripted interaction types need their own adapters.
+Only two players are supported. Do not use this build for a full synchronized campaign yet.
+
+Specific .14 regressions (test each PC as the acting player):
+- Push the red book, switch to aim while it falls, and verify the complete fall on both PCs.
+- Shoot one crib target from each PC; both targets and the dropped side must agree.
+- Collect the ear: it disappears and inventory updates on both PCs.
+- Check white nickname alignment above Buzz while turning, jumping and moving away.
+- Reproduce the wall shake at the position in the third recording.
+- Close/reopen Multiplayer and verify nickname and host IP are retained.
+- Multiplayer should check for updates before opening a lobby, including direct co-op EXE entry.
+
+Specific .15 checks (both PCs must run .15; older protocol is incompatible):
+- Pick up each sheep on either PC, then try the same sheep simultaneously. Counts must agree without duplication.
+- Push the red book all the way off the table; wait for landing. Both mesh AND collision must match on both PCs.
+- Move and jump under uneven Internet latency: remote Buzz should move smoothly with roughly 100 ms presentation delay.
+- Check nickname alignment at several camera angles; verify white text shrinks/fades with distance.
+- Stand against a wall and rotate the camera at several angles. Check inward clearance and smooth outward recovery.
+- Have the joining player trigger Tin Robot while the host watches from a distance, then repeat with host initiating.
+- Damage Tin Robot alternately and simultaneously; verify position, animation, health, defeat and reward on both PCs.
+- Keep ordinary-enemy deaths, crib target hits, ear, Pizza Planet tokens and dropped coins in the regression test.
+- Other bosses and unadapted scripted mechanisms are still pending; report the level/object rather than assuming universal synchronization.
+
+
+
+
+
+
+
+
+
+

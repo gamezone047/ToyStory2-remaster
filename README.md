@@ -17,4 +17,8 @@ Builds are distributed through this repository's **Releases**, not Git file stor
 
 ## Source development
 
-Custom mod and launcher sources are in [controls-src](controls-src/). See [DEVELOPMENT.md](DEVELOPMENT.md) for prerequisites, builds, tests and collaboration. Original game runtime assets are distributed separately and are not included in this source checkout.
+Custom mod and launcher sources are in [controls-src](controls-src/). See [DEVELOPMENT.md](DEVELOPMENT.md) for prerequisites, builds, tests and collaboration. The verified game runtime and assets are included through Git LFS. Install Git LFS before cloning; see DEVELOPMENT.md. Release downloads remain available for players.
+
+## Complete development copy
+
+This repository includes the 2026.11.7.5 game runtime, assets and mod sources. Clone using **Git LFS** and run `git lfs pull`; see [DEVELOPMENT.md](DEVELOPMENT.md). Personal saves and generated build output are excluded.

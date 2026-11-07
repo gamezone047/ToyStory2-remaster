@@ -1,29 +1,22 @@
-# Runtime comes from a separate local installation or release staging baseline.
-/data/
-/DiscData/
-/scripts/
+# Generated development output, private state, and archives.
 /release/
 /.stage*/
 /.source-publish/
-/toy2.exe
-/toy2.cfg
-/*.dll
-/*.exe
-/*.sav
+/.full-game-publish/
+*.sav
 *.log
 *.err
 *.obj
 *.lib
 *.exp
 *.pdb
-*.asi
-*.exe
-*.dll
 *.zip
-*.sha256
 __pycache__/
 /tools/python-libs/
 /controls-src/build-output/
+/controls-src/**/*.exe
+/controls-src/**/*.dll
+/controls-src/**/*.asi
 /controls-src/coop/native-frame.bin
 /controls-src/coop/native-audit.json
 /controls-src/coop/campaign-audit.json

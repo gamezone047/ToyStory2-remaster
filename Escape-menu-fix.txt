@@ -1,0 +1,9 @@
+Escape menu fix
+
+Escape now triggers the same native menu action as Enter. Enter remains available.
+Use the game menu to exit normally; this fix does not force-close the process.
+The 1440p borderless display configuration is unchanged.
+
+Original executable: InputBackup\toy2.exe
+To undo: close the game, then copy InputBackup\toy2.exe over toy2.exe.
+Patch source and byte checks: tools\enable_escape_menu.py

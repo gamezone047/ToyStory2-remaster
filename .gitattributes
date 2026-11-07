@@ -1,0 +1,9 @@
+# Runtime assets are stored in Git LFS. Source files remain ordinary Git text.
+data/** filter=lfs diff=lfs merge=lfs -text
+DiscData/** filter=lfs diff=lfs merge=lfs -text
+scripts/*.asi filter=lfs diff=lfs merge=lfs -text
+*.exe filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
+toy2.cfg filter=lfs diff=lfs merge=lfs -text
+# Keep runtime integrity manifest readable and diffable.
+data/runtime-files.sha256 -filter -diff -merge text

@@ -1,0 +1,169 @@
+Toy Story 2 Launcher
+
+Desktop shortcut: Toy Story 2 Launcher
+Program: Toy Story 2 Launcher.exe
+
+Choose a 16:9 resolution: 1280x720, 1600x900, 1920x1080,
+2560x1440 (default), or 3840x2160. The game remains borderless.
+Save settings applies changes without starting the game.
+Save & Play saves settings and starts the game.
+Close the game before saving changes.
+
+SFX and Music are independent master volume controls (0-100%).
+They multiply the corresponding in-game volume settings. If an in-game
+volume is muted, turn that setting up to hear it through the launcher.
+0% mutes the category; 100% leaves the in-game volume unchanged.
+Settings apply on the next game start, including when using toy2.exe directly.
+The old resolution chooser and startup intros remain skipped.
+
+Controls
+Version 24: enemy and item draw distance is 2x the ORIGINAL game range.
+This includes coins and model-based pickups. Finite cutoffs and native item
+fade remain; room/frustum visibility and hidden-enemy inactivity remain native.
+Level geometry stays at its original distance. Long-range laser is retained.
+Enemy/actor positional sounds are restricted to the player's room (not the
+camera's room). Positional looping updates mute outside the room and restore
+native volume inside. Non-positional dialogue, music and menus are unchanged.
+F9 comparison switching and frame profiling are removed from the active plugin.
+Old diagnostic captures and source files are retained only as investigation records.
+Escape pause menu: Quit Game opens the original No/Yes confirmation.
+Choose Yes to close the game normally, or No to return to the pause menu.
+It replaces Exit Level so quitting does not falsely complete a level.
+Mouse selection and keyboard navigation both use the original menu behavior.
+Background panorama (v18): horizontal position follows the rendered camera
+heading directly, with an exact whole number of texture repeats per full turn.
+This prevents accumulated background drift during repeated freelook turns.
+Scroll direction respects the game's already-negated camera heading: turning
+right moves distant scenery left, and turning left moves it right.
+The original backdrop textures, vertical horizon and edge colours are retained.
+Panorama rotation is roughly half the previous speed (rounded to whole repeats).
+Frame pacing now avoids turning a frame slightly over 16.67 ms into a forced
+33 ms frame. Normal play targets 60 Hz; the original demo mode remains 30 Hz.
+Timing changes are installed at display startup and recorded in ModernControls.log.
+Version 19 retains fixed frame deadlines after small delays. DirectX forced
+VSync is off to avoid a second limiter competing with the 60 Hz timer, and
+borderless presentation uses flip_discard. The launcher preserves these settings.
+General and aiming mouse sensitivity have separate launcher sliders (1-10).
+Both default to 2; higher values turn faster.
+WASD: move, including in visor mode
+Outside visor mode, WASD runs toward the corresponding camera-relative
+direction and faces Buzz that way; A/D no longer steer in circles.
+Running uses the current mouse camera heading, including pending mouse input.
+Both walking and standing use the native radial camera collision path, which
+moves the camera closer at obstructions rather than steering its orbit.
+Brief ground-contact gaps no longer reset the running acceleration ramp.
+Airborne movement and launch impulses use the native physics, preserving
+forward momentum from stomp launchers such as the first-level couch.
+Mouse: look (vertical freelook direction corrected)
+RMB: toggle visor aiming
+Entering visor aiming inherits the latest freelook yaw and pitch.
+LMB: fire (hold to use the game's native charging behavior)
+E: interact with a nearby NPC (contact no longer starts a conversation)
+Nearby talkable NPCs display "press e to talk" using the original HUD font.
+Left Ctrl: spin; while airborne, perform the native hard landing
+Escape: game menu
+F8: toggle mouse capture/look
+
+In visor mode, movement accelerates separately from the native stationary
+visor friction. Native vertical physics and collision processing still run.
+The invert vertical mouse look checkbox reverses Y input in both camera modes.
+Mouse orbit now runs before native camera collision checks and keeps their
+resolved angles. Pitch and per-frame rotation are limited to reduce clipping.
+Version 7 covers both third-person camera paths before their collision tests.
+Version 8 adds the shared NPC hint/health dialogue handlers and another
+level-specific conversation trigger to the E interaction gates.
+Version 9 adds nearby interaction hints, retains a stable running heading,
+preserves native launch momentum, and prevents music gain compounding when
+tracks start again. The unscaled native volume is retained for future tracks.
+Version 10 removes both actor distance filters, so loaded enemies remain in
+the visible/active actor list throughout the map. This can also keep distant
+actors updating. Normal hidden/dead actor flags still apply.
+The player laser traces successive native-length segments, stopping at the
+first wall or target. Reach covers loaded actor positions plus a margin, with
+a 64-segment safety ceiling for the native signed beam lifetime; it is not
+mathematically infinite. Enemy attacks retain their original range.
+Boss look-at targets are discarded during mouse-controlled third-person
+camera updates. Boss combat scripts remain active.
+Version 11 additionally removes the model visibility distance and room gates;
+normal view-frustum culling remains. The talk hint now uses the in-level
+dialogue font sheet 0x14 instead of the menu-only font sheet 0x32.
+If initial keyboard acquisition fails during startup, input retries every
+500 ms while the game has focus instead of leaving menu input disabled.
+
+Files and source
+Version 15
+The token counter is now labeled "tokens", with the game's gold token icon,
+above the lower-left coin counter. It appears only in visor aiming and follows
+the coin panel's slide-in animation; pause and dialogue hide it.
+Coins bypass their separate distance cutoff and distance alpha fade. Their
+normal billboard renderer and collected-object removal remain unchanged.
+Menus show a mouse cursor. Click native text choices; the highlight moves to
+the clicked choice before confirming. Level arrows and replay Yes/No are
+clickable, and options volume arrows respond to clicks. Right-click goes back.
+For animated 3D selectors and other choices, scroll to navigate and left-click
+to confirm. Hold the middle mouse button while scrolling for left/right
+navigation (a tilting wheel or Shift+wheel also works). This provides mouse-only
+navigation without requiring arrow keys; not every 3D object has a direct
+point-and-click hit area. controls-src\MenuMouse.h contains this implementation.
+This update was compiled and tested with simulated inputs, not live gameplay.
+
+Version 14 removes the Continue/Exit menu on token pickup. Partial collections
+return to gameplay after the native pickup sequence; all five tokens are
+required for the ordinary level's automatic completion. Boss completion
+keeps its native sequence. A bottom-left HUD counter shows "1 of 5" using
+the original gameplay font (which has no slash glyph); bosses show "0 of 1".
+The counter reflects the level's saved collected tokens, including on replay.
+
+Version 13 skips automatic between-level movies. The native movie-seen flags
+still update; collected-items summaries and level selection remain active.
+The separate movie viewer is unchanged. No movie files are deleted.
+
+Version 12 progression
+Collecting the fifth Pizza Planet token automatically follows the native
+level-exit animation, collected-items summary and level-selection flow.
+Completed levels display "completed" in the level selector. Selecting one
+opens a replay Yes/No prompt (No is selected initially). Use direction keys
+to change the choice, the usual menu confirm/jump key to accept, or cancel
+to close the prompt. Replay preserves saved token progress and remains
+playable rather than immediately ending because its tokens are already saved.
+Defeated actors handled by the native damage/death path no longer respawn
+during that level visit. A fresh level load/replay restores its enemies.
+controls-src\Progression.h contains these hooks; tests cover the decisions,
+prompt input debounce, and both animated and immediate actor retirement.
+Visual screen transitions have not been play-tested; the game was not launched.
+
+scripts\ModernControls.ini: mouse, audio and launcher settings
+controls-src\ModernControls.cpp: game plugin source
+controls-src\Combat.h: enemy visibility and segmented player laser source
+controls-src\Launcher.cs: launcher source
+controls-src\build.cmd: build the game plugin
+controls-src\build-launcher.cmd: build the launcher
+controls-src\test.cmd: control regression checks
+"Toy Story 2 Launcher.exe" --self-test: launcher tests without starting game
+
+Backups
+controls-src\ModernControls-v10.cpp.backup
+controls-src\ModernControls-v10.asi.backup
+controls-src\Combat-v10.h.backup
+The launcher keeps .launcher-backup copies before its first settings save.
+
+Validation
+Plugin and launcher compile successfully.
+Control tests include native visor friction on every simulated frame,
+forward/backward/strafe motion, diagonal limits, special states, preserved
+vertical physics, camera bounds, LMB action mapping and audio scaling.
+Launcher tests cover all five resolutions, independent volumes, inversion,
+preserved unrelated settings and rejecting malformed toy2.cfg files.
+Game was not launched for this update, as requested.
+
+2026.10.23.9 test build
+Sensitivity 5/10 now equals the previous minimum; 1/10 is five times finer.
+Single-player autosave: autosave.bin in the selected game folder. The last valid checkpoint resumes on launch. Continue Game is at the top of the main menu; New Game replaces Load Game. Saves are separate from manual save slots and are not distributed in releases.
+Autosave currently restores position/inventory/pickups/quest counters/enemy position and health. It does not preserve every scripted event, platform phase or airborne velocity. This feature and the new camera/sky/restore/audio fixes need gameplay testing.
+
+2026.10.23.11: Press E near floating information cubes to read them. Level completion saves automatically without a save-slot prompt; Continue returns to level selection after a completed level.
+BACKYARD AND CONSOLE UPDATE - 2026.11.7.1
+Both players must update. The lawnmower, pool duck/pump and falling tree plank now have dedicated synchronization. These changes passed offline checks; live co-op testing is still required.
+Press the backtick key (`) during gameplay to open the console. Type lvl1 through lvl15 and press Enter to change levels for both players. Type unstuck to move only your own Buzz to nearby clear ground. Escape closes the console. Space jumps off a rope even if its attachment cooldown is stuck.
+Test the duck and tree plank with the host far away, then swap roles. Co-op remains experimental; complete campaign synchronization is not claimed.
+
