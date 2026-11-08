@@ -1,3 +1,62 @@
+CURRENT STATUS - 2026.11.7.14
+2026.11.7.14: world synchronization review (generic systems + levels 1-15). Frame 8984 (appended at 8892:
+uint8 enemyLife[64], removedActors[2], tokenEvents[5]); wire v24 / IPC v23. Actor lives: generic deaths stay
+permanent (ModernControls DefeatedActor clears +0x7a); level-script removals keep the native respawn delay, the
+host's native respawn (4086f0 -> 406cd0) advances enemyLife, the guest holds its own respawn (+0x7a = 0x1388) and
+replays the host's; death/removal/drop bits are per life; removals (health > 0 -> 0 inside the level tick) replay
+as 405d20 mode 2. Token visibility is an ordered event (reveal 4a0db0 / take-back 4a0e60). Pickup categories
+0/1/3/6/7/8/10 replayed from the other PC are removed without the award (skip to 4a1669). ScriptSync/BossSync:
+after a one-PC level reload the staying PC continues as owner (peer publishes no snapshot), the reloaded PC never
+resumes from its own echoed record. Level 6 boss target operands 420588/420592 -> nearest living player on the
+owner. Actor census per level in the log.
+2026.11.7.13: campaign call-graph audit (audit-callgraph.py): ticks, helpers, init and actor callbacks of
+levels 1-15. ColliderVarDesc.read (packed group values, level 10 switches); ScriptCountdown merge
+(one-shot timers sent as monotonic progress, level 11 pours); new groups L5 bubbles x2, L8 crane prize,
+L10 floor switches, L11 route toy + 4 floating platforms, L14 carousel; L7 press velocity; masks for
+local blink bits. CoopMoverGroupCounts {..,5:8,8:2,10:3,11:6,14:2}. Wire v23 / IPC v22, frame 8892.
+2026.11.7.12: group vars may apply through a native transition (apply) with a shared-bit mask;
+level 11 paint can group and pour switches; mesh-position group values (level 4 crumbling
+platforms). Wire v22 / IPC v21.
+2026.11.7.11: SyncDiagnostics.h (sync log lines, CoopStatus/CoopPeerLevel exports, console coop/follow
+in GameConsole.h), host roster rejoin + client auto-reconnect (CoopSession.cs/CoopLauncher.cs),
+observer collider smoothing (ColliderSync.h). Wire v21 / IPC v20. Earlier: Wire v20 / IPC v19, MaxPacket 16384. 2026.11.7.10 adds group refresh/request hooks (level 14 lamp
+puzzle) and one level 14 group; layout unchanged. Frame 8892 bytes: int32 standing at 6104 and CoopMover movers[24]
+at 6108 (116 bytes each) after the script block. Earlier layout: CoopScriptActor scriptActors[4] at 5504 (116 bytes each) and
+CoopScriptVars script at 5968 (revision, owner, value[32]). Mapping 12224 bytes.
+ScriptSync.h: per-level ScriptLevelDesc {actor slots, command bases, flag masks, whitelisted vars,
+active/retired predicates, damage application, adopt hook}. Encounter owner: first activator, host
+wins simultaneous claims (Tin Robot rule). Observers write owner snapshots in Actors() and around the
+level tick, and record their own hits as cumulative requests (damage[localOwner]); the owner applies
+the difference to its incorporated count once (HP subtraction or one injected native hit per tick).
+Retirement is evaluated before following the owner's phase, so the defeat snapshot is written once.
+Var merges: Max/Min/Bits symmetric one-way, Follow (owner -> observer one-way), Owned (owner value
+every pass). Published values are clamped to CoopScriptBounds; Bits are masked. Boss slots are
+excluded from ordinary enemy sync and generic death replay. Implemented: level 3/6/9/12/15 bosses,
+rescued-friend stages of levels 4,5,7,8,10,11,13,14, level 4 targets and sequence rounds.
+2026.11.7.8: ScriptActorDesc.slotVar/slotHigh lets a record follow a native slot variable (level 9
+minion pair); TrackScriptSlots resets model/health tracking when it changes. ScriptLevelDesc.guard
+runs on observers only, after the snapshot write and before reading back (level 9 holds the release
+timer 52fbc0 at 0; level 15 holds fight flag 2 at 1 so actor callbacks never defeat locally).
+ScriptLevelDesc.reserved excludes extra slots (level 9 satellites 1-6) from generic enemy sync.
+2026.11.7.9: ColliderSync.h + ColliderGroups.h. Group = up to two colliders (fixed or read from a
+global at run time) + up to eight globals (pointer globals checked against toy2.exe data). Owner:
+standing collider (559e80) first, host on a tie; else nearest player within radius with 3/4
+hysteresis; else sticky. Owner reads geometry position, rotation, velocity, pending rotation, 0x88
+flags and the geometry enable short (+0x2c) after its level tick; observers write them (488510 for
+position) before and after theirs. Trigger globals: observers send compare-and-swap requests
+(requestFrom/requestTo, cumulative requestCount), applied once by the owner.
+Not implemented: see the pending list in CAMPAIGN-COVERAGE.txt.
+Offline tests only; no live two-player confirmation.
+
+Version: 2026.11.7.6
+
+- Complete the remaining Andy's House (level 1) and Backyard (level 2) level-script mechanism mapping from the native level ticks 417680 and 4190c0. Mechanisms already driven by shared state (crib, falling book/object, quest counts, token reveals) were confirmed and left on their existing paths.
+- House: garage vent hazards (417380, phases 52f588/52f568, colliders 12/13) follow the player in the garage, absorbing ordinary lag and correcting only real divergence with the matching collider state. The room-one trigger 52f5a0 (collider 8, mesh 21) is one-way shared progress; previously only the player who triggered it saw it.
+- Backyard: the twin pressure buttons and gate (52f6c8/52f6cc/52f610, colliders 5/6) merge the earliest press, so each player may press one button; gate stages replay once. The toppling board (52f5e4/52f5f0, colliders 2/3/4) merges push progress, then follows the first faller (host on a tie). The rising platform (52f6a8/52f684, collision entry 0, meshes 25/27) keeps height, rider movement and visuals together. The actor-26 challenge stage 52f664 is shared and starts the local actor script when the other player triggered it.
+- Not synchronized by design: bounce pads (local player launch only), decorative effects, and NPC reward dialogue (shared counts already prevent duplicate quest progress).
+- Both players must update: wire v16 / IPC v15, 5504-byte frames. Older clients are rejected.
+- Offline native regressions cover merge direction, duplicate packets, no rewind, side effects replayed once and per-level frame validation; managed ABI/transport and static native signatures pass. No game launched; live two-player confirmation of every mechanism remains required. Co-op remains experimental and is not complete campaign multiplayer.
+
 Version: 2026.11.7.5
 
 - Fix the backyard balance plank visual freeze introduced by restoring an old owner snapshot each tick. Native balance queues rotation for a later physics step; preserve the live collider angle instead of rewinding it before the next tick.

@@ -1,3 +1,33 @@
+FULL CO-OP CAMPAIGN TEST - 2026.11.7.13
+Follow controls-src/coop/FULL-CAMPAIGN-TEST.txt (shipped at the top of Multiplayer.txt). It replaces the per-level instructions below for this run.
+
+LEVEL 14 LAMP PUZZLE - 2026.11.7.10
+Both players must update. Walk to the lamp puzzle together: both PCs must show the same lamps and the same move counter. Press buttons from each PC in turn; every press must change the lamps once on both PCs and spend one move. Run out of moves once (both PCs rescramble to the same puzzle), then solve it and check that the door opens on both PCs. Report any mismatch with which player pressed.
+
+LEVEL MECHANISMS 4-13 - 2026.11.7.9
+Both players must update. For each mechanism, act once as host and once as guest while the other player watches from nearby and from far away:
+- Level 4: ride each balance pulley and watch its counterweight; stand on a path mover; walk onto the tipping bridge.
+- Level 5: ride the four lifts and both balances; press the button that raises the block and starts the gears.
+- Level 7: board the bobbing ride; shoot the target and run through the gate; use both press platforms; ride the path movers; open the NPC door.
+- Level 8: press the button that moves the lift. Level 10: ride both movers and shoot both targets. Level 11: defeat the bridge guards. Level 13: ride both balances and the five moving platforms.
+Both PCs must show the same position and state, and riding must stay smooth for the rider. Report any mismatch with the level, room and which player acted.
+
+LEVEL 9 AND LEVEL 15 BOSSES - 2026.11.7.8
+Both players must update. Start each fight once as host and once as guest while the other player watches.
+- Level 9: hit the boss from either PC. Both PCs must see the same satellite open and the same pair of minions appear; defeat the minions from different PCs and check that the satellite disappears on both and the round counts once. Continue until the boss is defeated and compare level completion on both PCs.
+- Level 15: hit each of the three bosses from both PCs. A boss must only go down when the owner's health reaches the limit; it must not go down on one PC alone. Compare the order of defeats, the final cutscene and level completion.
+Report any mismatch with the level, the room and which player acted.
+
+LEVELS 3-15 ENCOUNTERS - 2026.11.7.7
+Both players must update. For each boss in levels 3, 6 and 12: start the fight once as host and once as guest while the other player watches; both players then attack. Compare boss position, animation, health bar, defeat and level completion on both PCs, and check that hits from either player count once. In levels 4, 5, 7, 8, 10, 11, 13 and 14 free the trapped friend with one player while the other watches from nearby and from far away; the friend must leave on both PCs and token 4 must appear once. In level 4 shoot the three targets from different PCs and compare the lift; finish button-sequence rounds on one PC and check the token appears on both. Levels 9 and 15 bosses and the other level 4-14 mechanisms are not synchronized yet. Report any mismatch with the level, room and which player acted.
+
+LEVEL 1-2 MECHANISMS - 2026.11.7.6
+Both players must update. Test each mechanism once with the host acting and once with the guest acting, while the other player watches from nearby and from another room:
+- Andy's House garage: stand near the vents together and compare their timing; leave and re-enter the garage.
+- Andy's House: trigger the object in room one that grows when approached; the other player should see it and collide with it.
+- Backyard: each player stands on a different pressure button at the same time; the gate must open for both. Then compare the toppling board, the rising platform and the actor challenge (health bar, token) on both PCs.
+Report any mismatch with the level, room and which player acted.
+
 2026.10.24.8: Update both players. In Andy's House attic, have Player 2 walk along the balance plank while Player 1 watches, then swap roles. Verify rotation and footing on both PCs, leave/re-enter the room, and switch ownership by stepping onto the plank. Watch Tin Robot from the non-owning player: motion should interpolate, with correct attack/defeat state. Simultaneous weight from two riders is not combined.
 
 2026.10.24.5 visibility regression: On both updated PCs, approach the same jumping and flying enemies from different directions. Verify both see the live enemies within draw distance; move away/back, then kill one and ensure it stays gone. Repeat in the two-instance local test.

@@ -26,6 +26,7 @@ static bool poseReady;
 static bool wasLinked;
 static bool startConsumed,applyingDeath;
 static int deathSource=-1,dropSource[64];
+static uint8_t dropLifeTag[64],hostLifeSeen[64];static short enemyPrevHealth[64],levelTickHealth[64];static bool hostLifeReady,actorCensus;
 static uint32_t shotSequence,receivedShot;
 static char peerName[25];
 static unsigned localOwner;
@@ -76,7 +77,7 @@ static ActorDeathFn remoteActorDeath=(ActorDeathFn)0x405d20;
 static const unsigned animationFrames[35]={24,24,16,16,17,18,14,24,25,24,42,8,18,30,12,12,38,15,19,24,24,12,17,13,24,24,19,17,23,58,48,32,24,24,19};
 #ifdef COOP_TEST
 static unsigned testLevel;
-static uintptr_t testBossCommands,testScene;
+static uintptr_t testBossCommands,testScene,testChallengeCommands,testScriptCommands[32];
 static unsigned char testData[0x40000],testCollision[0x1000],testSession[0x200];
 #endif
 template<class T> static T& M(uintptr_t va){
@@ -85,6 +86,8 @@ template<class T> static T& M(uintptr_t va){
  if(va>=0x728720&&va<0x729720)return *(T*)(testCollision+va-0x728720);
  if(va==0xb62410)return *(T*)&testScene;
  if(va==0x4e02d8)return *(T*)&testBossCommands;
+ if(va==0x4e02f8)return *(T*)&testChallengeCommands;
+ if(va>=0x4e02fc&&va<0x4e037c&&!(va&3))return *(T*)&testScriptCommands[(va-0x4e02fc)/4];
  if(va==0x88278c)return *(T*)&testLevel;
  if(va>=0x520000&&va<0x560000)return *(T*)(testData+va-0x520000);
 #endif
@@ -126,18 +129,21 @@ static bool SameLevel(){
   remoteFrame.level==cachedLevel&&remoteFrame.layout==localFrame.layout&&
   remoteFrame.pickupCount==pickupCount;
 }
+#include "SyncDiagnostics.h"
 static void Exchange(){
  if(!shared)return;
  DWORD result=WaitForSingleObject(bridgeMutex,0);
  if(result!=WAIT_OBJECT_0&&result!=WAIT_ABANDONED)return;
  if(shared->magic==CoopMagic&&shared->version==CoopVersion){
   shared->local=localFrame;shared->gameTick=GetTickCount();
-  if(CoopValidFrame(shared->remote)){remoteFrame=shared->remote;helperTick=shared->helperTick;}
+  bool valid=CoopValidFrame(shared->remote);SyncObserveFrame(shared->remote,valid);
+  if(valid){remoteFrame=shared->remote;helperTick=shared->helperTick;}
  }
  ReleaseMutex(bridgeMutex);
 }
 static uint32_t Hash(uint32_t h,uint32_t n){return (h^n)*16777619u;}
 static void ResetEnemySync();
+static bool tokenNativeReady;static uintptr_t pickupReplaySlot;static int pickupSkipAward;
 static void ResetBossPresentation();
 static void ResetPlatform();
 static void ResetGarage();
@@ -145,6 +151,12 @@ static void SyncMower();
 static void BeginBackyard();
 static void EndBackyard();
 static void ResetSession();
+static void ResetMechanisms();
+static void ResetScript();
+static void ResetColliderGroups();
+static bool ScriptActorSlot(unsigned slot);
+static void BeginScript();
+static void EndScript();
 static void PrepareLevel(){
  unsigned level=M<unsigned>(0x88278c);uintptr_t table=M<uintptr_t>(0x559d6c);
  if(level==cachedLevel&&table==pickupTable)return;
@@ -154,9 +166,11 @@ static void PrepareLevel(){
  memset(localFrame.deadActors,0,sizeof(localFrame.deadActors));
  memset(localFrame.drops,0,sizeof(localFrame.drops));memset(localFrame.shots,0,sizeof(localFrame.shots));
  memset(localFrame.objects,0,sizeof(localFrame.objects));lastPushed=-1;pushUpdated=false;localFrame.scriptFlags=0;localFrame.boss={};memset(bossDamage,0,sizeof(bossDamage));memset(bossDamageApplied,0,sizeof(bossDamageApplied));bossLastHealth=-1;memset(localFrame.actorCollections,0,sizeof(localFrame.actorCollections));
- for(unsigned i=0;i<64;i++)dropSource[i]=-1;
+ for(unsigned i=0;i<64;i++){dropSource[i]=-1;dropLifeTag[i]=0;enemyPrevHealth[i]=0x7fff;hostLifeSeen[i]=0;}
+ memset(localFrame.enemyLife,0,sizeof(localFrame.enemyLife));memset(localFrame.removedActors,0,sizeof(localFrame.removedActors));
+ memset(localFrame.tokenEvents,0,sizeof(localFrame.tokenEvents));tokenNativeReady=false;hostLifeReady=false;actorCensus=false;pickupReplaySlot=0;pickupSkipAward=0;
  receivedShot=0;
- memset(actorSeen,0,sizeof(actorSeen));ResetEnemySync();ResetBossPresentation();ResetPlatform();ResetGarage();localFrame.burrow={};localFrame.mower={};localFrame.duck={};localFrame.tree={};memset(localFrame.backyardPlatforms,0,sizeof(localFrame.backyardPlatforms));ResetSession();
+ memset(actorSeen,0,sizeof(actorSeen));ResetEnemySync();ResetBossPresentation();ResetPlatform();ResetGarage();localFrame.burrow={};localFrame.mower={};localFrame.duck={};localFrame.tree={};memset(localFrame.backyardPlatforms,0,sizeof(localFrame.backyardPlatforms));ResetMechanisms();ResetScript();ResetColliderGroups();ResetSession();
  memset(pickupType,0,sizeof(pickupType));localFrame.layout=0;
  localFrame.pickupCount=0;localFrame.tokens=0;localFrame.spawnedTokens=0;
  if(level<1||level>15||!Readable(table,4))return;
@@ -181,20 +195,29 @@ static int PickupIndex(uintptr_t slot){
  unsigned i=(unsigned)((slot-pickupTable-4)/16);return i<pickupCount?(int)i:-1;
 }
 static bool SharedCategory(int category){return (category>=-1&&category<=10&&category!=4)||category==16;}
+// Effects that belong to the player who touched the pickup (dispatch table 4a1a08): 0 health
+// (52f396), 1 held power-up (52f398), 3 extra life (52f39a), 6/7 charges (882938/882964), 8 timer
+// 882920 (433ed0 also resets the player's movement state), 10 timer 53c824. A replay of the other
+// player's collection removes the pickup without awarding them. Coins, tokens, quest parts,
+// challenge items and the world re-arm (category 5) stay shared awards.
+static bool PersonalCategory(int category){return category==0||category==1||category==3||category==6||category==7||category==8||category==10;}
 static int __cdecl RemotePickup(uintptr_t slot){
  int i=PickupIndex(slot);if(i<0||!SameLevel()||!SharedCategory(pickupCategoryCache[i]))return 0;
  if(remoteFrame.collections[i]<=localFrame.collections[i])return 0;
  // Native power-up handlers require the slot's real Y when renewing a timer.
  if(M<int>(slot+4)==INT32_MIN)M<int>(slot+4)=pickupY[i];
+ pickupReplaySlot=slot;
  return 1;
 }
 static void __cdecl RecordPickup(uintptr_t slot){
+ bool replay=slot==pickupReplaySlot;pickupReplaySlot=0;pickupSkipAward=0;
  int i=PickupIndex(slot);if(i<0||!SharedCategory(pickupCategoryCache[i]))return;
+ if(replay&&PersonalCategory(pickupCategoryCache[i]))pickupSkipAward=1;
  unsigned next=localFrame.collections[i]+1;
  if(SameLevel()&&remoteFrame.collections[i]>next)next=remoteFrame.collections[i];
  localFrame.collections[i]=(unsigned short)(next>65535?65535:next);
 }
-static DWORD pickupCheckResume=0x4a11c6,pickupContact=0x4a121b,pickupAwardResume=0x4a125d;
+static DWORD pickupCheckResume=0x4a11c6,pickupContact=0x4a121b,pickupAwardResume=0x4a125d,pickupAwardEnd=0x4a1669;
 __declspec(naked) static void SharedPickupCheck(){__asm{
  pushfd
  pushad
@@ -227,26 +250,66 @@ __declspec(naked) static void SharedPickupAward(){__asm{
  popfd
  mov al,[esi+0ch]
  add esp,10h
+ cmp dword ptr [pickupSkipAward],0
+ jne personal
  jmp dword ptr [pickupAwardResume]
+personal:
+ // Same removal as the native handlers (4a1266/4a1279 -> 4a1669 -> 4a166d): hide the model
+ // pickup (types >= 0x30) and clear the slot, without the award.
+ mov dword ptr [esp+14h],0
+ cmp al,30h
+ jb plain
+ mov dword ptr [esp+14h],1
+plain:
+ jmp dword ptr [pickupAwardEnd]
 }}
 // All ordinary levels use five native token descriptors (mesh, active, pickup-Y,
 // reveal timer). Replay the engine's reveal operation, never copy its pointers.
 typedef void (__cdecl *RevealTokenFn)(int,int);
+typedef void (__cdecl *HideTokenFn)(int);
 static RevealTokenFn revealToken=(RevealTokenFn)0x4a0db0;
+// 4a0e60 takes a revealed token back (descriptor active 0, slot Y empty, mesh scaled to 0): the
+// timed NPC challenges of levels 7/10/14 (42248f/428151/42ecf4) do it when their timer runs out.
+static HideTokenFn hideToken=(HideTokenFn)0x4a0e60;
+// Token visibility is an event (revision, shown, owner), not a sticky union: a reveal and a
+// later take-back both reach the other PC in order. Collected tokens (52f0d7 bits) are final.
+static int tokenNative[5];
+static bool TokenEventNewer(uint32_t a,uint32_t b){
+ if(!(a&0xffff))return false;if(!(b&0xffff))return true;
+ int16_t d=(int16_t)((a&0xffff)-(b&0xffff));
+ return d>0||(d==0&&a!=b&&((a>>17)&1)<((b>>17)&1));
+}
+static void TokenEvent(unsigned i,bool shown){
+ uint32_t rev=max(localFrame.tokenEvents[i]&0xffff,remoteFrame.tokenEvents[i]&0xffff)+1;if(rev>0xffff)rev=1;
+ localFrame.tokenEvents[i]=rev|(shown?0x10000u:0u)|(localOwner?0x20000u:0u);
+}
+static bool TokenSlotValid(unsigned i){
+ // A valid level-local pickup descriptor must exist before native replay.
+ uintptr_t slotY=M<uintptr_t>(0x830ccc+i*16+8);
+ return slotY>=pickupTable+8&&(slotY-pickupTable-8)%16==0&&(slotY-pickupTable-8)/16<pickupCount;
+}
 static void SyncTokenSpawns(){
  if(!SameLevel()||cachedLevel%3==0)return;
+ unsigned collected=(M<unsigned char>(0x52f0d7+cachedLevel)|localFrame.tokens|remoteFrame.tokens)&0x1f;
  for(unsigned i=0;i<5;i++){
-  uintptr_t descriptor=0x830ccc+i*16;
-  if(M<int>(descriptor+4)==1)localFrame.spawnedTokens|=1u<<i;
+  int state=M<int>(0x830ccc+i*16+4);
+  if(tokenNativeReady&&state!=tokenNative[i]){
+   if(state==1&&tokenNative[i]==0)TokenEvent(i,true);
+   else if(state==0&&tokenNative[i]==1&&!(collected&(1u<<i)))TokenEvent(i,false);
+  }
+  tokenNative[i]=state;
  }
- localFrame.spawnedTokens|=remoteFrame.spawnedTokens;
+ tokenNativeReady=true;
  for(unsigned i=0;i<5;i++){
-  if(!(localFrame.spawnedTokens&(1u<<i))||((localFrame.tokens|remoteFrame.tokens)&(1u<<i)))continue;
-  uintptr_t descriptor=0x830ccc+i*16,slotY=M<uintptr_t>(descriptor+8);
-  // A valid level-local pickup descriptor must exist before native replay.
-  if(M<int>(descriptor+4)==0&&slotY>=pickupTable+8&&(slotY-pickupTable-8)%16==0&&
-     (slotY-pickupTable-8)/16<pickupCount)revealToken(i,1);
+  if(TokenEventNewer(remoteFrame.tokenEvents[i],localFrame.tokenEvents[i]))localFrame.tokenEvents[i]=remoteFrame.tokenEvents[i];
+  uint32_t e=localFrame.tokenEvents[i];if(!e||(collected&(1u<<i))||!TokenSlotValid(i))continue;
+  uintptr_t descriptor=0x830ccc+i*16;int state=M<int>(descriptor+4);bool shown=(e&0x10000)!=0;
+  if(shown&&state==0)revealToken(i,1);
+  else if(!shown&&state==1)hideToken(i);
+  tokenNative[i]=M<int>(descriptor+4);
  }
+ localFrame.spawnedTokens=0;
+ for(unsigned i=0;i<5;i++)if(M<int>(0x830ccc+i*16+4)==1)localFrame.spawnedTokens|=1u<<i;
 }
 static void SyncTokens(){
  if(cachedLevel<1||cachedLevel>15)return;
@@ -292,6 +355,72 @@ static void ApplyQuestActors(){
   SafeActorDeath(actor,2);
  }
 }
+// ---- Actor lives (2026.11.7.14) --------------------------------------------------------------
+// ModernControls (Progression.h, DefeatedActor at 408bc7/408942/408a26) makes the generic death
+// path permanent (+0x7a = 0, model 0). Actors removed by LEVEL SCRIPTS keep their native respawn
+// delay (405d20 mode 2 keeps the model while +0x7a != 0, 40613d) and 4086f0 respawns them with
+// 406cd0(actor,0) once the delay ran out and they are outside the LOCAL camera (448f00, 408879),
+// e.g. level 7 slots 10/11 (422238/42228c). The host's respawn advances enemyLife[slot]; the
+// guest never respawns natively (+0x7a held at 0x1388 >= 5000, 408886) and replays the host's
+// respawn. Death, removal and drop bits refer to the current life only.
+typedef void (__cdecl *RespawnActorFn)(uintptr_t,int);
+static RespawnActorFn respawnActor=(RespawnActorFn)0x406cd0;
+static bool TrackedActor(unsigned i){
+ return i<64&&actorSeen[i]&&!ScriptActorSlot(i)&&!(BossReplicated()&&i==8)&&!((cachedLevel==1||cachedLevel==2)&&i==29);
+}
+static void StartActorLife(unsigned i,uint8_t life){
+ localFrame.enemyLife[i]=life;uint32_t mask=~(1u<<(i%32));
+ localFrame.deadActors[i/32]&=mask;localFrame.removedActors[i/32]&=mask;localFrame.drops[i/32]&=mask;
+ ResetEnemySlot(i);
+}
+static void FollowHostLives(){
+ if(!SameLevel()||localOwner==0)return;
+ for(unsigned i=0;i<64;i++){
+  uint8_t host=remoteFrame.enemyLife[i];
+  if(hostLifeReady&&host==hostLifeSeen[i])continue;
+  hostLifeSeen[i]=host;if(host==localFrame.enemyLife[i])continue;
+  uintptr_t p=0x52c840+i*0x9c;
+  if(TrackedActor(i)&&M<short>(p+0x7e)<=0&&Readable(M<uintptr_t>(p+0x98),0x14)){
+   respawnActor(p,0);SyncLog("actor slot %u respawned by the host (life %u)",i,host);}
+  StartActorLife(i,host);enemyPrevHealth[i]=M<short>(p+0x7e);
+ }
+ hostLifeReady=true;
+}
+static void HoldGuestRespawns(){
+ if(!SameLevel()||localOwner==0)return;
+ for(unsigned i=0;i<64;i++)if(TrackedActor(i)){
+  uintptr_t p=0x52c840+i*0x9c;
+  if(M<short>(p+0x14)>0&&M<short>(p+0x7e)<=0&&M<short>(p+0x7a)!=0)M<short>(p+0x7a)=0x1388;
+ }
+}
+static void DetectHostRespawns(){
+ for(unsigned i=0;i<64;i++)if(TrackedActor(i)){
+  uintptr_t p=0x52c840+i*0x9c;short model=M<short>(p+0x14),health=M<short>(p+0x7e);
+  if(localOwner==0&&enemyPrevHealth[i]!=0x7fff&&enemyPrevHealth[i]<=0&&health>0&&model==actorModel[i]){
+   StartActorLife(i,(uint8_t)(localFrame.enemyLife[i]+1));SyncLog("actor slot %u respawned (life %u)",i,localFrame.enemyLife[i]);}
+  enemyPrevHealth[i]=health;
+ }
+}
+// Level-script removals (health > 0 -> 0 inside the level tick: no death animation, no coin) are
+// replayed as removals (405d20 mode 2), not as deaths with a coin drop.
+static void BeginRemovalWatch(){for(unsigned i=0;i<64;i++)levelTickHealth[i]=TrackedActor(i)?M<short>(0x52c840+i*0x9c+0x7e):0;}
+static void EndRemovalWatch(){
+ for(unsigned i=0;i<64;i++)if(TrackedActor(i)&&levelTickHealth[i]>0&&M<short>(0x52c840+i*0x9c+0x7e)<=0&&!CoopBit(localFrame.deadActors,i)){
+  CoopSetBit(localFrame.removedActors,i);CoopSetBit(localFrame.deadActors,i);}
+}
+// One census per level for the live test: every occupied actor slot, its health class and its
+// native respawn delay (descriptor +0x11), so special actors (health 80..99) can be identified.
+static void ActorCensus(){
+ if(actorCensus||cachedLevel<1||cachedLevel>15)return;
+ bool any=false;for(unsigned i=0;i<64;i++)if(M<short>(0x52c840+i*0x9c+0x14)>0)any=true;
+ if(!any)return;actorCensus=true;
+ for(unsigned i=0;i<64;i++){
+  uintptr_t p=0x52c840+i*0x9c,descriptor=M<uintptr_t>(p+0x98);short model=M<short>(p+0x14),health=M<short>(p+0x7e);if(model<=0)continue;
+  int delay=Readable(descriptor,0x14)?M<unsigned char>(descriptor+0x11):-1;
+  const char* kind=ScriptActorSlot(i)?"script":health>0&&health<80?"ordinary":health>=80&&health<100?"SPECIAL":health>=100?"npc/quest":"inactive";
+  SyncLog("census level %u slot %u model %d health %d respawn %d %s",cachedLevel,i,model,health,delay,kind);
+ }
+}
 static void __cdecl Actors(){
  // Retire received enemy deaths before native actor-list construction. NPCs and
  // special/scripted actors (health >=100) are excluded from this early prototype.
@@ -299,18 +428,33 @@ static void __cdecl Actors(){
  PrepareLevel();ApplyQuestActors();BeginBossTick();SyncEnemies();SyncRc();SyncBurrow();SyncMower();
  for(unsigned i=0;i<64;++i){
   uintptr_t p=0x52c840+i*0x9c;short model=M<short>(p+0x14),health=M<short>(p+0x7e);
-  if((BossReplicated()&&i==8)||((cachedLevel==1||cachedLevel==2)&&i==29))continue;
+  if((BossReplicated()&&i==8)||((cachedLevel==1||cachedLevel==2)&&i==29)||ScriptActorSlot(i))continue;
   if(!actorSeen[i]&&model>0&&health>0&&health<100){actorSeen[i]=true;actorModel[i]=model;actorHealth[i]=health;}
-  if(actorSeen[i]&&SameLevel()&&CoopBit(remoteFrame.deadActors,i)&&!CoopBit(localFrame.deadActors,i)&&model==actorModel[i]){
-   // Play the real native death sequence (including its coin drop), once.
-   CoopSetBit(localFrame.deadActors,i);deathSource=(int)i;applyingDeath=true;
-   M<short>(p+0x7a)=0;SafeActorDeath(p,1);M<short>(p+0x7a)=0;
-   if(M<short>(p+0x7e)==0)M<short>(p+0x14)=0;
-   applyingDeath=false;deathSource=-1;
+ }
+ FollowHostLives();
+ for(unsigned i=0;i<64;++i){
+  uintptr_t p=0x52c840+i*0x9c;short model=M<short>(p+0x14);
+  if(!TrackedActor(i))continue;
+  if(SameLevel()&&CoopBit(remoteFrame.deadActors,i)&&!CoopBit(localFrame.deadActors,i)&&
+     remoteFrame.enemyLife[i]==localFrame.enemyLife[i]&&model==actorModel[i]){
+   CoopSetBit(localFrame.deadActors,i);
+   if(CoopBit(remoteFrame.removedActors,i)){
+    // A level-script removal: the same native removal, keeping the native respawn delay.
+    CoopSetBit(localFrame.removedActors,i);SafeActorDeath(p,2);
+   }else{
+    // Play the real native death sequence (including its coin drop), once. Generic deaths are
+    // permanent in this build (ModernControls DefeatedActor), so the delay is cleared the same way.
+    deathSource=(int)i;applyingDeath=true;
+    M<short>(p+0x7a)=0;SafeActorDeath(p,1);M<short>(p+0x7a)=0;
+    if(M<short>(p+0x7e)==0)M<short>(p+0x14)=0;
+    applyingDeath=false;deathSource=-1;
+   }
   }
  }
- ActivatePeerEnemies();nativeActors();RestoreEnemyRanges();EndBossTick();SyncEnemies();SyncRc();SyncBurrow();SyncMower();
- for(unsigned i=0;i<64;++i)if(actorSeen[i]){
+ HoldGuestRespawns();
+ BeginScript();ActivatePeerEnemies();nativeActors();RestoreEnemyRanges();EndScript();EndBossTick();SyncEnemies();SyncRc();SyncBurrow();SyncMower();
+ DetectHostRespawns();ActorCensus();
+ for(unsigned i=0;i<64;++i)if(actorSeen[i]&&!ScriptActorSlot(i)){
   uintptr_t p=0x52c840+i*0x9c;short model=M<short>(p+0x14),health=M<short>(p+0x7e);
   if((model==actorModel[i]||model==0)&&health==0&&actorHealth[i]>0)CoopSetBit(localFrame.deadActors,i);
  }
@@ -330,13 +474,14 @@ typedef uintptr_t (__cdecl *SpawnEffectFn)(int,int,int,int,int,int,int,int,int,i
 static uintptr_t __cdecl SpawnDeathDrop(int x,int y,int z,int vx,int vy,int vz,int size,int a,int b,int type){
  uintptr_t result=((SpawnEffectFn)0x40fae0)(x,y,z,vx,vy,vz,size,a,b,type);
  if(type==0x3d&&deathSource>=0&&result>=0x529e58&&result<0x52ad58&&(result-0x529e58)%0x3c==0)
-  dropSource[(result-0x529e58)/0x3c]=deathSource;
+  {unsigned e=(unsigned)((result-0x529e58)/0x3c);dropSource[e]=deathSource;dropLifeTag[e]=localFrame.enemyLife[deathSource];}
  return result;
 }
 static int __cdecl CollectDrop(uintptr_t effect){
  if(!shared||effect<0x529e58||effect>=0x52ad58||(effect-0x529e58)%0x3c)return 1;
- int source=dropSource[(effect-0x529e58)/0x3c];if(source<0||source>=64)return 1;
- bool collected=CoopBit(localFrame.drops,source)||(SameLevel()&&CoopBit(remoteFrame.drops,source));
+ unsigned e=(unsigned)((effect-0x529e58)/0x3c);int source=dropSource[e];if(source<0||source>=64)return 1;
+ if(dropLifeTag[e]!=localFrame.enemyLife[source])return 1;   // a coin from an earlier life of this slot
+ bool collected=CoopBit(localFrame.drops,source)||(SameLevel()&&CoopBit(remoteFrame.drops,source)&&remoteFrame.enemyLife[source]==localFrame.enemyLife[source]);
  if(!CoopBit(localFrame.drops,source)){
   CoopSetBit(localFrame.drops,source);
   // If the remote packet already includes this drop, its award is applied here.
@@ -368,13 +513,13 @@ already:
 }}
 static void ApplyDrops(){
  if(!SameLevel())return;
- for(unsigned i=0;i<64;i++)if(CoopBit(remoteFrame.drops,i)&&!CoopBit(localFrame.drops,i)){
+ for(unsigned i=0;i<64;i++)if(CoopBit(remoteFrame.drops,i)&&!CoopBit(localFrame.drops,i)&&remoteFrame.enemyLife[i]==localFrame.enemyLife[i]){
   CoopSetBit(localFrame.drops,i);if(M<short>(0x52f39e)<99)++M<short>(0x52f39e);M<short>(0x52c828)=180;
  }
  for(unsigned i=0;i<64;i++){
   uintptr_t p=0x529e58+i*0x3c;
   if(M<short>(p+0x24)<=0){dropSource[i]=-1;continue;}
-  if(dropSource[i]>=0&&CoopBit(localFrame.drops,dropSource[i]))M<short>(p+0x24)=0;
+  if(dropSource[i]>=0&&dropLifeTag[i]==localFrame.enemyLife[dropSource[i]]&&CoopBit(localFrame.drops,dropSource[i]))M<short>(p+0x24)=0;
  }
 }
 extern "C" __declspec(dllexport) void __cdecl CoopShotEvent(uintptr_t beam){
@@ -462,6 +607,9 @@ static void SyncCribTargets(){
  }
 }
 #include "BackyardSync.h"
+#include "MechanismSync.h"
+#include "ColliderSync.h"
+#include "ScriptSync.h"
 static void __cdecl SharedLevelTick(int level){
  diagnosticPhase="level script";
  PrepareLevel();SyncCribTargets();BeginBossTick();SyncEnemies();
@@ -473,7 +621,7 @@ static void __cdecl SharedLevelTick(int level){
   PushableObjects((void*)0x52f300);
   M<unsigned short>(0x52ad88)=input;
  }
- SyncTokenSpawns();BeginPlatformTick();BeginShovel();BeginGarage();BeginBurrow();BeginBackyard();nativeLevelTick(level);EndBackyard();SyncBurrow();EndGarage();EndShovel();SyncTokenSpawns();EndPlatformTick();EndBossTick();SyncCribTargets();SyncEnemies();pushUpdated=false;
+ SyncTokenSpawns();BeginPlatformTick();BeginShovel();BeginGarage();BeginBurrow();BeginBackyard();SyncMechanisms();BeginScript();SyncColliderGroups(false);BeginRemovalWatch();nativeLevelTick(level);EndRemovalWatch();SyncColliderGroups(true);EndScript();SyncMechanisms();EndBackyard();SyncBurrow();EndGarage();EndShovel();SyncTokenSpawns();EndPlatformTick();EndBossTick();SyncCribTargets();SyncEnemies();pushUpdated=false;
 }
 static int SafeAnimationFrame(short animation,int frame){
  if(animation<0||animation>=35)return 0;
@@ -540,7 +688,9 @@ static void __cdecl BuildList(){
  diagnosticPhase="render list";
  SyncEnemies();SyncRc();SyncBurrow();SyncMower();((void(__cdecl*)())0x4a28b0)();RefreshBackyardPlatformMeshes();Capture();Exchange();ApplyDrops();ApplyShots();
  uintptr_t remote=0;
- bool linked=SameLevel();if(linked!=wasLinked){Log(linked?"Other game linked: remote Buzz enabled.":"Other game unavailable or level differs: remote Buzz hidden.");wasLinked=linked;}
+ bool linked=SameLevel();if(linked!=wasLinked){Log(linked?"Other game linked: remote Buzz enabled.":"Other game unavailable or level differs: remote Buzz hidden.");wasLinked=linked;
+  if(!linked)SyncLog("unlinked: local level %u layout %08x, remote level %u layout %08x, pickups %u/%u, helper %lums",localFrame.level,localFrame.layout,remoteFrame.level,remoteFrame.layout,pickupCount,remoteFrame.pickupCount,helperTick?GetTickCount()-helperTick:0);}
+ if(linked)SyncSummary(false);
  if(SameLevel()&&CoopValidPose(remoteFrame.pose)){
   // Only the render prefix is cloned. It contains values, not the actor's
   // collision/AI/animation ownership pointers farther into the native struct.
@@ -572,13 +722,14 @@ static void __cdecl BuildList(){
   M<unsigned short>(RcActor+0x40)|=1;
  }
  rendered=IncludeVisibleEnemies(renderList,rendered);
+ rendered=IncludeScriptActors(renderList,rendered);
  renderLevel=localFrame.level;
 }
 static void __cdecl PrepareRender(void* nativeList){
  diagnosticPhase="render matrices";
  unsigned level=M<unsigned>(0x88278c);
  useRenderList=level>=1&&level<=15&&level==renderLevel;
- if(useRenderList){BeginBossPresentation();BeginRcPresentation();BeginEnemyPresentation();}
+ if(useRenderList){BeginBossPresentation();BeginRcPresentation();BeginEnemyPresentation();BeginScriptPresentation();}
  ((void(__cdecl*)(void*))0x4cd880)(useRenderList?renderList:nativeList);
 }
 static void __cdecl DrawRender(void* nativeList){
@@ -592,7 +743,7 @@ static void __cdecl DrawRender(void* nativeList){
  }
  if(useRenderList)BeginEnemyRender(renderList);
  ((void(__cdecl*)(void*))0x4cdc20)(useRenderList?renderList:nativeList);
- if(useRenderList){EndEnemyRender();EndBossPresentation();EndRcPresentation();EndEnemyPresentation();}
+ if(useRenderList){EndEnemyRender();EndScriptPresentation();EndBossPresentation();EndRcPresentation();EndEnemyPresentation();}
 }
 static bool ProjectNameplate(const float* view,const float* projection,const float* point,float& sx,float& sy,float width=320,float height=240){
  float v[4]={};
@@ -719,5 +870,6 @@ BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,LPVOID){
     Hook(0x49e311,BuildList)&&Hook(0x49e15d,Pickups)&&Hook(0x49e153,Actors)&&
     Hook(0x4411ae,PrepareRender)&&Hook(0x441285,DrawRender))
   Log("Two-player bridge v2 loaded: automatic start, nameplates, shots, native deaths, shared drops and pushable objects.");
+ if(shared&&!InstallBossChaseTarget())Log("Level 6 boss chase target signature mismatch: the boss keeps chasing its owner only.");
  return TRUE;
 }

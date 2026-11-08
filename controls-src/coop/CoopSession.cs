@@ -21,7 +21,7 @@ namespace Toy2Coop {
         public short Pitch;
     }
     static class Wire {
-        public const int Magic = 0x324f4f43, Version = 15, MaxPacket = 8192;
+        public const int Magic = 0x324f4f43, Version = 24, MaxPacket = 16384;
         public const byte Hello=1, State=2, Heartbeat=3, Input=4, Reject=5, Frame=6;
         public static byte[] Packet(byte type, Action<BinaryWriter> body) {
             using(var m=new MemoryStream()) {
@@ -57,7 +57,9 @@ namespace Toy2Coop {
     }
     public sealed class CoopHost : IDisposable {
         public const int DefaultPort=27922;
-        sealed class Peer { public byte Id; public string Name; public TcpClient Socket; public PlayerInput Input; public GameFrame Frame; }
+        sealed class Peer { public byte Id; public string Name; public TcpClient Socket; public PlayerInput Input; public GameFrame Frame; public bool Ready; }
+        // Players present when the campaign started; only they may rejoin after a dropped connection.
+        readonly Dictionary<byte,string> roster=new Dictionary<byte,string>();
         readonly object gate=new object();
         readonly Dictionary<byte,Peer> peers=new Dictionary<byte,Peer>();
         readonly HashSet<uint> collected=new HashSet<uint>();
@@ -95,11 +97,21 @@ namespace Toy2Coop {
                     if(r.ReadByte()!=Wire.Hello)throw new InvalidDataException("Hello required");
                     name=Wire.Name(r.ReadString());Wire.End(r);
                 }
+                bool rejoin=false;
                 lock(gate){
-                    if(started||peers.Count>=maximumPlayers-1)throw new InvalidDataException(started?"Campaign already started":"Lobby full ("+maximumPlayers+" players maximum)");
-                    byte id=1;while(peers.ContainsKey(id))id++;
-                    peer=new Peer{Id=id,Name=name,Socket=socket};peers.Add(id,peer);revision++;
+                    if(started){
+                        byte slot=0;foreach(var r in roster)if(r.Value==name)slot=r.Key;
+                        if(slot==0)throw new InvalidDataException("Campaign already started");
+                        Peer stale;if(peers.TryGetValue(slot,out stale)){peers.Remove(slot);stale.Socket.Close();}   // its old connection is dead
+                        peer=new Peer{Id=slot,Name=name,Socket=socket};peers.Add(slot,peer);revision++;rejoin=true;
+                    }else{
+                        if(peers.Count>=maximumPlayers-1)throw new InvalidDataException("Lobby full ("+maximumPlayers+" players maximum)");
+                        byte id=1;while(peers.ContainsKey(id))id++;
+                        peer=new Peer{Id=id,Name=name,Socket=socket,Ready=true};peers.Add(id,peer);revision++;
+                    }
                 }
+                // A rejoining player receives the started lobby state before any game frame.
+                if(rejoin){SendState(peer,Snapshot());lock(gate)peer.Ready=true;}
                 Publish();
                 while(!disposed){using(var r=Wire.Read(stream)){
                     byte type=r.ReadByte();
@@ -117,7 +129,7 @@ namespace Toy2Coop {
             }catch(Exception e){
                 try{Wire.Send(socket.GetStream(),Wire.Packet(Wire.Reject,w=>w.Write(e.Message)));}catch{}
             }finally{
-                lock(gate){sockets.Remove(socket);if(peer!=null){peers.Remove(peer.Id);revision++;}}
+                lock(gate){sockets.Remove(socket);Peer current;if(peer!=null&&peers.TryGetValue(peer.Id,out current)&&current==peer){peers.Remove(peer.Id);revision++;}}
                 socket.Close();if(peer!=null&&!disposed)Publish();
             }
         }
@@ -128,12 +140,13 @@ namespace Toy2Coop {
             }));
         }
         void Publish() {
-            Peer[] copy;LobbyState state;lock(gate){copy=new List<Peer>(peers.Values).ToArray();state=SnapshotLocked();}
+            Peer[] copy;LobbyState state;lock(gate){copy=new List<Peer>(peers.Values).FindAll(p=>p.Ready).ToArray();state=SnapshotLocked();}
             foreach(var p in copy)try{SendState(p,state);}catch{p.Socket.Close();}
         }
+        public int ConnectedPeers {get{lock(gate)return new List<Peer>(peers.Values).FindAll(p=>p.Ready).Count;}}
         public bool StartCampaign(int selectedLevel) {
             if(selectedLevel<1||selectedLevel>15)throw new ArgumentOutOfRangeException("selectedLevel");
-            lock(gate){if(started||peers.Count<1)return false;started=true;level=selectedLevel;revision++;}
+            lock(gate){if(started||peers.Count<1)return false;started=true;level=selectedLevel;revision++;foreach(var p in peers.Values)roster[p.Id]=p.Name;}
             Publish();return true;
         }
         // Called only by the host simulation AFTER collision/pickup validation.
@@ -154,7 +167,7 @@ namespace Toy2Coop {
         // host-authoritative movement/physics implementation.
         public void PublishFrame(GameFrame frame){
             if(frame==null)throw new ArgumentNullException("frame");
-            Peer[] copy;lock(gate){if(!started)return;copy=new List<Peer>(peers.Values).ToArray();}
+            Peer[] copy;lock(gate){if(!started)return;copy=new List<Peer>(peers.Values).FindAll(p=>p.Ready).ToArray();}
             byte[] packet=Wire.Packet(Wire.Frame,w=>frame.Write(w));
             foreach(var peer in copy)try{Wire.Send(peer.Socket.GetStream(),packet);}catch{peer.Socket.Close();}
         }
@@ -188,8 +201,10 @@ namespace Toy2Coop {
             for(int i=0;i<count;i++){byte id=r.ReadByte();if(id>3||s.Players.ContainsKey(id))throw new InvalidDataException("Invalid player ID");s.Players.Add(id,Wire.Name(r.ReadString()));}
             Wire.End(r);if(!s.Players.ContainsKey(0)||!s.Players.ContainsKey(s.LocalPlayer))throw new InvalidDataException("Missing player");
             lock(gate){if(state==null||s.Revision>=state.Revision)state=s;}
-        }}catch(Exception e){if(!disposed)Error=e.Message;}finally{Dispose();}}
-        void Heartbeat(){while(!disposed){Thread.Sleep(1000);if(disposed)break;try{Wire.Send(socket.GetStream(),Wire.Packet(Wire.Heartbeat,w=>{}));}catch{Dispose();}}}
+        }}catch(Exception e){if(!disposed||Error==null)Error=e.Message;}finally{if(Error==null)Error="Connection closed";Dispose();}}
+        void Heartbeat(){while(!disposed){Thread.Sleep(1000);if(disposed)break;try{Wire.Send(socket.GetStream(),Wire.Packet(Wire.Heartbeat,w=>{}));}catch(Exception e){Fail(e.Message);}}}
+        // Marks the connection lost (Error is never null afterwards) and closes it.
+        public void Fail(string reason){if(Error==null)Error=String.IsNullOrEmpty(reason)?"Connection lost":reason;Dispose();}
         public void SendInput(PlayerInput input){Wire.Send(socket.GetStream(),Wire.Packet(Wire.Input,w=>{w.Write(input.Sequence);w.Write(input.Buttons);w.Write(input.Yaw);w.Write(input.Pitch);}));}
         public GameFrame LatestFrame(){lock(gate)return frame;}
         public void SendFrame(GameFrame frame){if(frame==null)throw new ArgumentNullException("frame");Wire.Send(socket.GetStream(),Wire.Packet(Wire.Frame,w=>frame.Write(w)));}

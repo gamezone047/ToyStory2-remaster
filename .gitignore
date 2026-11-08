@@ -22,3 +22,7 @@ __pycache__/
 /controls-src/coop/campaign-audit.json
 .env
 .env.*
+/controls-src/coop/native-frame3.bin
+/controls-src/coop/native-frame4.bin
+/controls-src/coop/native-rules.bin
+/controls-src/coop/campaign-audit.json

@@ -1,4 +1,94 @@
-CAMPAIGN SYNCHRONIZATION COVERAGE - 2026.11.7.3
+CAMPAIGN SYNCHRONIZATION COVERAGE - 2026.11.7.14
+
+WORLD SYNCHRONIZATION REVIEW (2026.11.7.14; static, offline)
+Generic systems: ordinary enemies (host pose/health/target, guest damage requests, death once), pickups
+(generations; personal categories 0/1/3/6/7/8/10 award only the collector), coins (shared; per-life drop keys),
+quest actors, tokens (collected bits + ordered reveal/take-back events), pushables, pause, music, level travel:
+shared. Lives, health, checkpoints (52f34c), death respawn in place (414110), camera/HUD/sound: per player.
+Enemy respawn: generic deaths are permanent in this build (ModernControls DefeatedActor at 408bc7/408942/408a26);
+actors removed by level scripts respawn natively (4086f0, off-camera 448f00, 406cd0) and are now host-driven
+(enemyLife). Ordinary enemy attacks/projectiles on the guest still come from its local AI (host pose shown):
+local by design. Special actors (health 80..99 outside script slots) are still not synchronized: the per-level
+actor census in CoopBridge.log identifies them for the live test. Level 10 actor motion hook 425a80 (called from
+the generic actor loop 4087fe/408a4d) moves slots 1..5 (shared only where they are ordinary enemies).
+Unnamed globals left by audit-callgraph.py were classified by access/effect (all cosmetic, local-player or
+challenge-local); details in the session note world-sync-report.md. Level 1: 52f594 written once and never
+read, 52f598/52f5b0 particles, 52f5a4 vent fan angle, 52f5cc decorative mesh 0xe, 52f5d0 sprite angle.
+Still per player (design): level 4 colour-mixing attempt, NPC timed challenges (state per player; items,
+token visibility and rewards shared), boss projectiles of levels 12/15.
+
+PER-LEVEL CALL-GRAPH AUDIT (2026.11.7.13; reproduce: py controls-src/coop/audit-callgraph.py)
+Method: for each level the tick (table 4a1b68), the level start code (table 4a1ab8), every actor
+callback installed by the spawn switch (actor +0x94, 406e8b..407044) and, recursively, every
+level-local function they call (0x417000..0x431000) were disassembled. Every level global written
+outside the start code was compared with the adapters (ScriptSync.h, ColliderGroups.h, MechanismSync.h)
+and each remaining write was classified by reading its code. Local-player conditions searched:
+52f300/304/308 position, 559e80 standing collider, 52b81c surface, 53c64c landing, 488580 contact,
+49f400/49f3c0 proximity. Static evidence, not a live certification.
+
+Lvl | Tick / start | Helpers (called) | Actor callbacks | Result
+ 1 | 417680 / 4171d0 | 417510, 417380 | - | shared (MechanismSync.h, 2026.11.7.6 mapping)
+ 2 | 4190c0 / 418e50 | - | 418610, 4189c0, 418ce0 | shared (Backyard mapping + generic actor sync)
+ 3 | 41aa10 / 41a8a0 | - | - | boss shared; other writes = boss swing/camera/cutscene cosmetics derived per tick
+ 4 | 41c640 / 41c190 | 41bee0 ropes (derived), 41bc20 crumbling (shared), 41c100 challenge items (per player) | 41b780 friend (cosmetic), 41bb80 quest removal (shared) | shared except the colour-mixing attempt (see below)
+ 5 | 41e880 / 41e390 | 41e150 lifts (shared), 41e300/41e020 start-only | 41ddb0 friend, 41dec0 quest, 41df70 (no state) | NEW: bubble rides x2; gears/rocking derived from shared button; cannons local
+ 6 | 420060 / 41ffb0 | - | - | boss shared; 52f998/9a8/9b0/9b4 attack/camera timers local
+ 7 | 421340 / 421090 | 420f70 (math) | 420af0 friend, 420ed0 quest | NEW: press platform velocity 52f9bc; spring pads local launches
+ 8 | 423200 / 423020 | 422d20 hazard (local) | 422660 friend, 422c70 quest | NEW: crane prize; ambient emitters/sound tables local
+ 9 | 424490 / 424390 | - | - | boss shared; 52fbbc/bd0/be8/bf8/bfc/c00 attack/camera timers local
+10 | 425f60 / 425b60 | 425680 switch meshes (derived), 425eb0 particles | 425700 friend, 4259b0 quest | NEW: floor-switch puzzle + solved bit 4; windmills decorative; launch pads local
+11 | 42a130 / 429d70 | 428890/4292c0/428c80/428ba0/4293d0 paint can (shared), 429910 pours (fixed), 428e70 route toy (NEW), 429fb0 x4 floats (NEW), 4295b0 turrets (aim at local Buzz, disabled by shared pours), 429800 pour effect (replayed), 428700 turret sound, 429ce0 start-only | 4282d0 friend, 428650 quest | shared after 2026.11.7.13
+12 | 42b3a0 / 42b300 | - | - | boss shared; 52fe08/e20/e28/e30/e34 attack timers local
+13 | 42ca60 / 42c930 | 42c3e0 platforms (shared), 42c200 path math, 42c810 particles, 42c8a0/42c2b0 start-only | 42be60 friend, 42c150 quest | shared; fans/conveyors push the local Buzz (local by design)
+14 | 42e790 / 42e600 | 42d710/42d8b0/42d9c0/42db10/42e1d0 lamp puzzle + door (shared), 42dcb0 carousel (NEW) | 42d3e0 friend, 42d620 quest | shared; lightning, sound emitters local
+15 | 42fc50 / 42faa0 | - | 42f310, 42f530, 42f7b0 bosses | boss shared (callbacks guarded on observers)
+
+Gaps found and fixed in 2026.11.7.13 (ColliderGroups.h / ScriptSync.h):
+- Level 10 floor switches (426f5e..4270c7): a landing on surface 0x20/0x21/0x22 moves one step between the
+  counters 52fc50/52fc30/52fcd8 (0..2; meshes 0x12..0x14 follow, 425680). All three at 1 -> 52fc14 bit 4:
+  collider 0x13 off, lamp meshes, path movers start (4272ac). The check runs only during the LOCAL player's
+  landing, so a puzzle solved on one PC stayed closed on the other. Now one proximity group (anchor mesh 0x12)
+  whose value is the packed counters (one compare-and-swap request per landing) and Bits mask 7 on 52fc14 with
+  the bit-4 effects replayed once. 52fc24 (re-arm between landings) stays per player.
+- Level 11 route toy (428e70): node 52fd4c (routes 4f3df8, rewritten by the shared colour), index 52fd84,
+  direction 52fdbc, position 52fd98/9c/a0, heading 52fd0c, speed 52fdf0 (slowed when it knocks the LOCAL
+  Buzz) -> different routes per PC. Route end enables collider 0x1b. Group with collider 0x1b.
+- Level 11 floating platforms 429fb0 (colliders 0xd..0x10, pairs 52fd90/28, 52fd7c/1c, 52fd88/20, 52fd50/18):
+  dipped only for the local landing. Groups owned by the standing player.
+- Level 11 pour switches: the timer ends at -1 (42a878); the Max merge (bounds 0..0x3c) pulled finished
+  switches back to 0 and re-armed them. Now ScriptCountdown (progress 0 / 1..0x3c / 0x3d done); the press and
+  the pour (429800(4*i), 52fd48 bit i = turret stopped) are replayed once.
+- Level 11 local bits: 0x400 of 52fd14 (route toy near the can, 4292a0) and 0x200 of 52fd3c (button blink,
+  4293d0) changed on every PC and became spurious requests; now masked out (derived locally).
+- Level 8 crane prize (4235db..423c47): prize 52fb08/0c/10 randomised on the first approach (52fb18, random
+  stream), grab result 52fb74 (NEAR2 crane vs prize), fall 52fb1c, pickup made collectable at the landing.
+  Second group with the lift's anchor (same owner).
+- Level 5 bubble rides (41ed67..41f5f2): free-running phase 52f8f8 started bubble 1/2 at different times per PC.
+  Two groups (phase in bubble 1); a bubble carries the player riding it (53c668) natively on each PC.
+- Level 7 press platform 0xa: velocity 52f9bc added to its group (COLMOVE 421bcf).
+- Level 14 carousel 42dcb0: collider 0 rotation (COLROT every tick) had a per-PC phase. Group with collider 0.
+
+Remaining per player / local by design (reviewed, not adapters):
+- Level 4 colour-mixing attempt (surfaces 0x20..0x23 -> 52f7c0/52f7d8/52f80c/52f764, display on actor slot 5,
+  table 41dd80): each player mixes on their own PC; completed rounds (52f770 bits) and token 3 are shared.
+- NPC timed challenges (52f2f8/52ad64; levels 4, 5, 7, 8, 10): per player; rewards via token sync. Level 7
+  door target 52fa10 is Max-merged, so the door opened by either challenge stays open for both.
+- Hazards and projectiles aimed at the local Buzz (L4 52f83c/52f8a4/52f850, L8 422d20, L11 turrets 4295b0 and
+  route-toy knockback, L14 carousel knockback), launch/spring pads (L7 52f9c0/52f9ec, L10 52fc5c.., L13
+  52fe38/52fe3c), fans and conveyors pushing the local Buzz (L13 52ff18/28/34/38, surfaces 0x20..0x24),
+  camera/region/fog/light (53c628, 5d2a8c, L4 52f7d0/52f7d4, L13 52fe40), lightning/thunder/random flicker
+  (L4 52f7f4/52f810/52f7c8, L14 52ffa8/52ffb0/52ffd8..), sound emitters (L8 52fa90/52fb68..78/52fb80,
+  L14 52ff50../52ff98..), decorative rotations (L5 gears 52f8d0/52f904/52f8d4/52f90c derived from the shared
+  button, L8 crane swing 52fb60/64, L10 windmills 52fc28/34/38/54/6c/fd00, L14 52ffd4), rescued-friend private
+  timers in callbacks (L4 41b780, L5 41ddb0, L7 420af0, L8 422660, L10 425700, L11 4282d0, L13 42be60, L14 42d3e0).
+- Level 11: collider 0x19/0x1a swap keyed on the local player's form (52f398, 52fdc0), ambient projectiles in
+  room 2 (52fd80/52fdf4, random stream), sound/visual timers 52fd78/52fd8c/52fda8/52fdb0/52fdc4/52fdf8.
+- Level 10: NPC timed challenge 52fc44/52fcdc/52fc10 (token 2 via token sync), friend timer 52fcfc/52fc18,
+  sound timers 52fc2c/58/60/64/70/74.
+- Bosses 3/6/9/12/15: the remaining writes are attack/camera/cutscene timers and cosmetics around the shared
+  boss snapshot (see the boss paragraphs below).
+
+PREVIOUS INVENTORY (2026.11.7.12 and earlier)
 
 Static evidence inventory, not a gameplay certification. Counts are call sites, NOT object counts.
 The tick scan excludes indirect targets and separate actor callbacks; those need explicit review.
@@ -8,24 +98,32 @@ pushable objects, remote player movement, pause and music. Their existence does 
 prove every level-specific actor/mechanism uses them.
 
 Level | Mechanism call sites | Script globals | Player/room reads | Specific adapter status
- 1 | 21 | 29 | 29 | RC, shovel, attic plank, crib, Tin Robot; remaining mechanisms unaudited
- 2 | 44 | 48 | 47 | RC, mower, duck/pump, tree fall, pop-up soldiers; other mechanisms pending
- 3 |  5 | 24 | 13 | No dedicated level mechanism adapter; pending
- 4 | 37 | 33 | 15 | No dedicated level mechanism adapter; pending
- 5 | 77 | 28 | 32 | No dedicated level mechanism adapter; pending
- 6 |  0 | 11 |  3 | No dedicated level mechanism adapter; pending
- 7 | 39 | 16 | 38 | No dedicated level mechanism adapter; pending
- 8 | 27 | 43 | 17 | No dedicated level mechanism adapter; pending
- 9 |  2 | 18 | 13 | No dedicated level mechanism adapter; pending
-10 | 50 | 28 | 44 | No dedicated level mechanism adapter; pending
-11 | 27 | 19 | 13 | No dedicated level mechanism adapter; pending
-12 |  0 |  9 | 12 | No dedicated level mechanism adapter; pending
-13 | 19 | 10 | 12 | No dedicated level mechanism adapter; pending
-14 | 11 | 20 |  7 | No dedicated level mechanism adapter; pending
-15 |  4 | 13 |  4 | No dedicated level mechanism adapter; pending
+ 1 | 21 | 29 | 29 | All level-tick mechanisms mapped: RC, shovel, attic plank, crib, Tin Robot, garage vents, room-one trigger
+ 2 | 44 | 48 | 47 | All level-tick mechanisms mapped: RC, mower, duck/pump, tree, planks, pop-up, buttons/gate, board, platform, challenge
+ 3 |  5 | 24 | 13 | DONE (boss): slot-0 boss via ScriptSync engine; phase 52f754, damage 52f6f0, reveal/rearm replay; rest local/decorative
+ 4 | 37 | 33 | 15 | DONE: targets, sequence rounds, friend stage; pulleys, 4 path movers, tipping bridge, 3 crumbling platforms (groups)
+ 5 | 77 | 28 | 32 | DONE: friend stage, button 52f938 bit 1; 4 lift pairs, 2 balances (groups); gears/cannons local
+ 6 |  0 | 11 |  3 | DONE (boss): slot-0 boss; phase 52f9a4, HP hits vs 52f98c, attack-cycle vars shared
+ 7 | 39 | 16 | 38 | DONE: friend stage, NPC door 52fa10; ride, target gate, 2 press platforms, 6 path movers (groups)
+ 8 | 27 | 43 | 17 | DONE: friend stage; button lift 52fb88 (group, table 424364); NPC challenge per player
+ 9 |  2 | 18 | 13 | DONE (boss): slot 0 + dynamic minion pair (52fbc8/52fbc4); count 52fbd4, pair spawn/satellite open/removal replayed once
+10 | 50 | 28 | 44 | DONE: friend stage, targets 52fc14; 2 path movers (groups)
+11 | 27 | 19 | 13 | DONE: friend stage, bridges, paint can 52fd14/52fd3c/52fd30/52fdfc (group), 6 pour switches; collider swap local
+12 |  0 |  9 | 12 | DONE (boss): slot-0 boss; phase 52fe24, phase-2 hits vs 52fe00; boss projectiles local per player
+13 | 19 | 10 | 12 | DONE: friend stage; 2 balances, 5 platform records 52fe48 (groups); spring pads local
+14 | 11 | 20 |  7 | DONE: friend stage; lamp puzzle 52ffd0/52ff70/52ffb4, door 52ff7c (proximity group, press requests)
+15 |  4 | 13 |  4 | DONE (boss): actors 0-2 owner snapshots + commands; callback defeats guarded on observers; 530064 follows
+
+Levels 1-2 (2026.11.7.6): every mechanism call in ticks 417680/4190c0 was traced. Local-only
+by design: bounce pads (launch the local player), decorative effects, NPC reward dialogue.
+Actor callbacks (for example Backyard actor 26 behaviour) still rely on generic enemy sync.
+Live two-player confirmation of these adapters is still pending.
 
 Remaining engineering work (not completed by this release):
-- Resolve indirect branches in levels 4, 8 and 15 and audit actor callback dispatch.
+- Indirect branches: level 4 table 41dd80 (12 button-sequence display states for slot 5, a
+  per-player attempt) and level 15 table 430914 (4 intro mesh-shake variants on 530024, intro
+  timeline) are resolved; level 8 tables 424364/42437c remain to resolve; actor callbacks are listed
+  below (audit 2026.11.7.8) with the unclassified ones marked PENDING.
 - Map remaining level-specific fields, mesh/collider pairs, trigger conditions and rewards.
 - Give each mechanism explicit ownership and transferable state; do not copy pointers or player-local memory.
 - Add regression cases for guest-only activation, host-only activation, ownership handoff,
@@ -36,5 +134,110 @@ RC level 2 review evidence: actor slot 29 at 52d9ec; phase 52f2f8; node 52f668;
 RC laps 52f620; player laps 52ad64; checkpoint 52f6b0; direction 52f5e0.
 Native inclusive path bound 64 at 419430; route pointer stays local (559c74).
 Tree fall: native 41a3b1 and 41a3c7 pass Z rotation for meshes 30 and 31.
+
+Levels 3-15 (2026.11.7.7, static analysis of ticks 41aa10..42fc50; offline tests only):
+Engine: controls-src/coop/ScriptSync.h. Encounter owner = first native activator, host wins a
+simultaneous claim; owner publishes value-only actor snapshots (pose, motion, render bytes
+0x24..0x37, command offset, timer, flags, collision byte); observers write them around every
+native pass and turn their own hits into cumulative requests that the owner applies once.
+Script globals use Max/Min/Bits (symmetric one-way), Follow (owner-only one-way) or Owned.
+Per-level whitelist and bounds: CoopScriptBounds/CoopActorRules (CoopFrame.h) = GameFrame.cs.
+
+Shared indirectly (no new adapter needed): all token rewards (token reveal sync), quest actors
+(health 102 collection, sites 41bc12/41df61/420f64/422d0b/425a68/4286ea/42c1eb/42d66c), pushables
+(e.g. level 5 collider 0x12/0x13 swap keyed by pushable state 53c6e8), pickups, level travel.
+Local by design: proximity hazards and projectiles aimed at the local Buzz (e.g. level 4
+52f7ec/52f83c, level 12 attack cycle 52fe30/52fe34), knockback (4071e0), local camera/cutscene
+regions (50a1xx/50a5xx, 53c628), HUD markers (830d84, 52b7e0), lighting/fog by local proximity
+(level 4 52f7d0), random taunts/thunder/particles (52adac stream), NPC timed challenge in level 4
+(52f2f8/52ad64, reward via tokens).
+
+Level 3 boss (slot 0): phases 0 -> 1 (local proximity) -> 3e7 -> 3e8 defeat -> 3e9.. removal -> 406
+complete; hit = health != 52f730 (41ac7f), +0x800 to 52f6f0 (0x1000..0x3800); reveal of mesh 0x32
+and pickup 0 at 0x3000 and type-0x3f rearm are replayed once on observers. Mesh 0 swing/fall is
+derived per tick from shared vars.
+Level 6 boss (slot 0): phases 0 -> 1 (local x < 0x31f9e) -> 2 -> 3 (health <= 10) -> 4 complete;
+any changed nonzero health vs 52f98c is a hit. The boss chases the owner's Buzz (native target).
+Level 12 boss (slot 0): phases 0 -> 1 (local x > -0x18b2b) -> 2 -> 3 (health < 10) -> 4 complete;
+hits only in phase 2 vs 52fe00.
+Rescued-friend stages (levels 4,5,7,8,10,11,13,14; slots 24,3,0,40,8,11,32,46): Max-merged;
+crossing stage 2 replays the friend command start (base 4e030c/4e0334/4e0324/4e0350/4e0330/
+4e0348/4e0368/4e0360) once; token 4 stays on token sync.
+Level 4 targets: colliders 0x16..0x18 -> 52f784 bits 1/2/4 with collider/mesh 0x41..0x43 replay;
+lift height converges per tick; sequence rounds 52f770 bits -> token 3.
+
+Mechanism groups (2026.11.7.9, ColliderSync.h / ColliderGroups.h): see ColliderGroups.h for every
+collider, global and native site. Level 4 pulleys 1/7,2/8,3/9,4/6 (49ec00 mode 2, 48acc0 return
+programs 4f1ba4..4f1c1c), movers 0xe..0x11, bridge 0x1a (52f7e0 trigger, surface 0x24 alias);
+level 5 lifts 5/8,6/7,9/a,b/c (41e150) and balances 2,1; level 7 ride 0 (52fa30/52f9e4), target gate
+0xf (52fa24/52fa28), press platforms 0xa/0xe, movers 7,8,9,0xb,0xc,0xd; level 8 button lift (anchor
+mesh 0xa); level 10 movers 1/0; level 13 balances 3/4 and platform records 52fe48+i*0x20 (42c3e0).
+Script one-way values: level 5 52f938 bit 1 (collider 4 +0xe10, meshes 0x10/0x11), level 7 52fa10,
+level 10 52fc14 bits 1/2 (colliders 4/5, meshes 0x11/0x10), level 11 52fd54/52fd38 (colliders 0x17/0x16).
+
+Level 11 paint can (2026.11.7.12, helpers 428890/4292c0/428c80/428ba0/429910 called from tick 42a130):
+colour bits 52fd14 set by three paint buttons (table 4f3fdc) through 428890 (meshes from table 4f3f48,
+route entries 4f3e00..4f3e56); bit 0x800 is the local blink. Level buttons (table 4f3fcc: collider,
+bit, n, sound) through 4292c0 (collider +-0xe10 y) and target 52fd30 = -1600*n; fill 52fdfc follows
+per tick, 428c80 redraws the can. One proximity group (anchor mesh 0x24) whose colour/buttons are
+applied through the native transitions. Pour switches 52fd58..52fd6c (table 4f3fb4) Max-merged.
+Helper functions called from level ticks were missed by the tick-only scan. All of them were
+reviewed in 2026.11.7.12: level 4 41bc20 = three crumbling platforms (now shared, below), 41bee0
+pulley ropes (derived); level 5 41e150 lifts (shared); level 7 420f70 math only; level 8 422d20
+local hazard (knockback/particles); level 10 425680 mesh positions derived per tick, 425eb0
+particles/sound; level 11 helpers (paint can, pour switches, above); level 13 42c3e0 platforms
+(shared), 42c810 particles; level 14 lamp puzzle helpers (shared).
+Level 4 crumbling platforms (41bc20 at 41cbdd/41cbfa/41cc17): run only while the LOCAL player is
+within 0x480 of the mesh; timer 52f7a4/52f7a0/52f79c (trigger), fall offset 52f7b8/52f7b4/52f7bc,
+speed 52f7ac/52f7b0/52f7a8, colliders 0x24/0x25/0x26 enabled while solid, meshes 0xa/0xc/0xb. One
+group each; the mesh position is shared as group values (owner 4ccef0, observer 4cce30).
+
+Still pending / per player:
+- Level 14 lamp puzzle (2026.11.7.10): 52ffd0 low nibble lamps / high nibble target, 52ff70 moves
+  (blink counter once solved), 52ffb4 first-visit scramble (42db10, random stream), presses by landing
+  (53c64c == -0x28) on surfaces 0x20-0x23 -> 42d710, flash 52ff90/52ff48, door 52ff7c (42e1d0).
+  One proximity group anchored on lamp mesh 0x23; observers redraw lamps (42d8b0/42d9c0) and the move
+  counter (meshes 0x36-0x39); observer presses are CAS requests on 52ffd0, the owner spends the move.
+  The door cutscene 52ffc8 stays local to each PC.
+- Level 4 button-sequence attempts and NPC timed challenges (levels 4, 8, 14) stay per player; rewards via tokens.
+- Level 7 actors in slots 10/11 removed by the tick (422238/42228c) rely on generic actor sync
+  (ordinary-enemy pose/health/death replay); confirm in the live test.
+- Level 8 table 42437c (4 entries at 423e6e) picks one of four positions for an ambient sound
+  (49e660 0x7b+k); local by design. 52fb8c (mesh 0x13 stops when the local player enters the
+  region, writes 53c6e6) stays local.
+- Special actors (health >= 80 at first sight, outside script slots) are now logged once per level
+  ("special actor") so the live test identifies any that need an adapter.
+- Ordinary enemies with health >= 80 outside the slots above still have no dedicated adapter.
+
+Level 9 boss (2026.11.7.8; tick 424490, init 424390): slot 0 boss, slots 1-6 orbiting satellites
+(positions derived from the boss pose and orbit globals 52fc0c/52fc08/52fbec, contact knockback is
+local), slots 7-11 minions. Correction: 406cd0 is the native actor (re)spawn from its descriptor
+(model, position, command, health), not a removal. Hit = health != 52fbb8; while 52fbd4 < 6 the boss
+health is restored to 0x1a-52fbd4 and the next pair comes from table 4f2f58 (52fbf4 += 2). During the
+owner's cutscene satellite #52fbd4 opens (405cf0 1/0x17), the pair spawns (406cd0 0) and the
+satellite is removed (405d20 1). 52fbd4 (init 1) increments when both minions have health 0; at 7
+phase 3, health <= 10 phase 4 (token 0x80), boss removal phase 5, level complete. Records 1/2 follow
+52fbc8/52fbc4 (a shared slot is owned by record 1 only). Observers replay spawn/open/removal once on
+the owner's pair/count advance and hold 52fbc0 at 0 around native passes. Attack timer 52fc00/52fbfc,
+camera target 50a118 and HUD 52b7e0 stay local.
+Level 15 boss (2026.11.7.8; tick 42fc50, init 42faa0): slots 0/1/2 with callbacks 42f310/42f530/
+42f7b0 (spawn switch 40700d/406faa/407044). Fight flags 530008/530004/53000c 0 -> 2 at the end of
+the LOCAL intro 52fff8 (4301e0) -> 3 on defeat (callback, health < 10 while the flag is 2; 530064++,
+52fff4 = last actor). Expected health 530028/530030/53002c, hurt timers 530018/530020/53001c are
+owned. Observers hold flag 2 at 1 around native passes, so callbacks only record local hits (requests
+applied once by the owner). 530064 3 -> 4 -> 5 runs natively on each PC from the followed count.
+Local: intro timeline 52fff8, attack counters 530060/53005c/52fffc (command offsets are shared),
+light/HUD 530068/530000/830e3c/52b7e0, waypoint marker 830d78..830d8e.
+
+Actor-callback audit (2026.11.7.8): actor +0x94 callbacks are set by the spawn type switch at
+406e8b..407044. Generic (406220..406c70, 416a60/416ab0) are shared actor behaviours.
+- Quest-actor removal callbacks (405d20): 41bb80 L4, 41dec0 L5, 420ed0 L7, 422c70 L8, 4259b0 L10,
+  428650 L11, 42c150 L13, 42d620 L14 - already shared (quest sites 41bc12..42d66c).
+- Level 15 boss callbacks 42f310/42f530/42f7b0 - covered by the level 15 adapter.
+- Level 2 418610/4189c0 (52f6ec)/418ce0 - covered by the 2026.11.7.6 Backyard mapping / generic sync.
+- Rescued-friend actor callbacks 41b780 L4, 41ddb0 L5, 420af0 L7, 422660 L8, 425700 L10, 4282d0 L11,
+  42be60 L13, 42d3e0 L14: they read the shared friend stage and write only the friend's private
+  hurt/blink timers, sounds and particles (local cosmetics). Stage writes are captured by the Max
+  merge wherever they happen. Classified 2026.11.7.9.
 
 Reproduce inventory: py -3.9 controls-src/coop/audit-campaign.py

@@ -53,7 +53,11 @@ static void BeginBossTick(){
  ObserveBossDamage();
  CoopBoss& state=localFrame.boss;const CoopBoss& remote=remoteFrame.boss;
  bossDamage[1-localOwner]=max(bossDamage[1-localOwner],remote.damage[1-localOwner]);
- if(remote.revision&&(!state.revision||(remote.owner==state.owner&&(int32_t)(remote.revision-state.revision)>0)||
+ // The owner reloaded the level (no record): the fight continues from this PC's native state.
+ if(state.revision&&state.owner!=localOwner&&!remote.revision){state.owner=localOwner;++state.revision;SyncLog("Tin Robot: the owner reloaded the level, continuing locally");}
+ // After our own reload, never resume ownership from our old record echoed by the other PC.
+ bool staleSelf=remote.owner==localOwner&&!state.revision;
+ if(remote.revision&&!staleSelf&&(!state.revision||(remote.owner==state.owner&&(int32_t)(remote.revision-state.revision)>0)||
     (remote.owner<state.owner))){
   state=remote;
  }

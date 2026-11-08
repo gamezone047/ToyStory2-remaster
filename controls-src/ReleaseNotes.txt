@@ -1,3 +1,98 @@
+Unreleased (development, not packaged; needs a new four-part version before delivery)
+
+- Experimental co-op: all work so far is combined on main (2026.11.7.14 plus the changes below). Moving mechanisms in levels 4-14: a PC that reloaded the level continues from its own last published state instead of republishing the fresh native state; a request still pending when its sender becomes the owner no longer blocks later presses. Wire v24 / IPC v23, unchanged.
+- Offline native regressions (including the 50-group mechanism matrix), managed tests and static signatures only; no live two-player confirmation. Co-op remains an experimental prototype, not complete campaign multiplayer.
+
+Version: 2026.11.7.14
+
+- World synchronization review of the whole campaign (generic engine systems plus levels 1-15). Fixes for what it found:
+- Boss fights after one player reloads the level (game over, menu, travel): the player who stayed now continues the fight with the boss as it is, and the returning player joins it. Before, the returning player took the fight over with a fresh, fully healed boss that replaced the boss on the other PC. Applies to the level 3/6/9/12/15 bosses and the Tin Robot.
+- Timed NPC challenges (levels 7, 10, 14): when the timer runs out and the reward token is taken back, it now disappears on both PCs. Before, the token stayed available forever after a failed challenge. Token reveals and take-backs are now sent in order.
+- Health, extra lives, held power-ups, charges and timed effects from pickups now go only to the player who touched the pickup; the pickup disappears for both. Coins, tokens, quest items and challenge items stay shared as before.
+- Actors that a level script removes and the game later brings back (for example the two actors in level 7 that fall away) now come back on both PCs at the same time, controlled by the host. A removal is replayed as a removal (no extra coin for the other player). Ordinary enemies killed in combat stay permanently defeated as before.
+- Level 6 boss: the boss now chases the nearest living player instead of only the player whose PC runs the fight.
+- Diagnostics: the co-op log lists every actor slot of each level once (health class and respawn delay), to identify special actors in the live test.
+- Both players must update: wire v24 / IPC v23, frames grow to 8984 bytes. Older clients are rejected.
+- Offline native, managed and static signature checks only. No game launched; nothing was tested in a live two-player game. Co-op remains an experimental prototype, not complete campaign multiplayer.
+
+Version: 2026.11.7.13
+
+- Full audit of every campaign level (1-15): the level tick, every helper function it calls, the level start code and every actor behaviour callback were checked for shared objects that still ran separately on each PC. The audit table is in CAMPAIGN-COVERAGE.txt.
+- Level 10: the floor-switch puzzle (three floor switches whose indicators must all point the same way) is now one shared puzzle. A press from either PC moves the indicators on both; solving it opens the gate and starts the two moving platforms on both PCs. Before, a puzzle solved by one player stayed closed for the other.
+- Level 11: the paint-route toy now takes the same route on both PCs and enables the same platform at the end of its route; the four floating platforms in the paint dip the same for both players.
+- Level 11 fix: a used pour switch could re-arm on the other PC and pour again. Pour switches are now shared as a one-shot timer; the pour and the stopped turret are replayed once on the other PC.
+- Level 11 fix: local blink bits of the paint can and the level buttons no longer cause extra presses on the owner.
+- Level 8: the crane prize carried by the button lift is shared (where it starts, whether the crane grabs it, where it falls), so both players see the same result and the prize can be collected once.
+- Level 5: the two bubble rides started by the button are shared (same bubbles at the same time on both PCs).
+- Level 7: the launching press platform now also shares its speed (no jitter for the watching player).
+- Level 14: the carousel turns at the same angle on both PCs.
+- Both players must update: wire v23 / IPC v22 (frame size unchanged, 8892 bytes). Older clients are rejected.
+- Offline native regressions, managed tests and static native signatures pass. No game launched; live two-player confirmation is still required. Co-op remains experimental and is not complete campaign multiplayer.
+
+Version: 2026.11.7.12
+
+- Level 11 paint can is now shared: the colour mixed with the three paint buttons, the four level buttons and how full the can is. The player nearest to the can runs it; the other player sees the same colour and filling, and their own presses are sent once to the owner (a level-button press also sets the target fill). The local colour blink stays per PC.
+- Level 11: the six pour switches are shared one-way; the other PC replays the press (button, collider, hidden mesh) once, without the camera cutscene.
+- Level 4: the three crumbling platforms are now shared (they only ran near each PC's own Buzz before): shaking, falling, collision and reappearing match on both PCs.
+- Fix: the level 5 button raised its block on the wrong axis on the other PC (now +0xe10 on y, like the game).
+- Both players must update: wire v22 / IPC v21.
+- Offline native regressions, managed tests and static native signatures pass. No game launched. Co-op remains experimental.
+
+Version: 2026.11.7.11
+
+- Build for the full two-player campaign test (see FULL CO-OP CAMPAIGN TEST in Multiplayer.txt).
+- Diagnostics: CoopBridge.log now records synchronization events: who owns each boss fight and mechanism and why, shared values adopted, presses/shots sent and applied or refused, rejected network frames with the failing section, why the games are not linked, special actors left out of enemy sync, and a summary every 30 seconds. Console command "coop" shows a one-line status (level, role, linked, owners, rejected frames).
+- Reconnect: if player 2's connection drops during the game, their lobby reconnects automatically every 2 seconds while the game keeps running; the host takes the same player back into the started campaign (strangers are still refused). A failed send no longer stops the session.
+- Console command "follow" takes you to the other player's level if you ended up on different levels.
+- Moving platforms, pulleys, lifts and balances move smoothly for the watching player (interpolated between updates, no local guessing).
+- Level 8: the remaining branch table only picks a random spot for an ambient sound (local by design). A level reload on one PC (after dying) restores shared progress without rewinding the other PC (regression test).
+- Both players must update: wire v21 / IPC v20. Older clients are rejected.
+- Offline native regressions, managed tests (including rejoin) and static native signatures pass. No game launched; this build exists to be tested live. Co-op remains experimental.
+
+Version: 2026.11.7.10
+
+- Level 14 lamp puzzle is now one shared puzzle. Before, each PC scrambled its own lamps on the first visit, so the two players saw different puzzles. Now the nearest player runs it (the same proximity groups as levels 4-13); the other PC receives the lamps, target, remaining moves, button flash and door progress and redraws the lamp and move-counter meshes. A press by the other player is sent as a one-time compare-and-swap request; the owner applies it once and spends the move. Solving raises the door on both PCs and each PC plays the door cutscene locally.
+- Both players must update: wire v20 / IPC v19 (frame size unchanged, 8892 bytes). Older clients are rejected.
+- Offline native regressions, managed tests and static native signatures pass. No game launched; live two-player confirmation is still required. Co-op remains experimental and is not complete campaign multiplayer.
+
+Version: 2026.11.7.9
+
+- New mechanism groups (ColliderSync.h) for levels 4, 5, 7, 8, 10 and 13. A group is a set of moving colliders plus the script values that drive them. The player standing on it owns it (the host on a tie); groups with a range also follow the nearest player, with hysteresis; otherwise the last owner keeps it. The owner shares collider position, rotation, pending movement/rotation, enable state and the group's values; the other PC writes them around its native level tick, and meshes, ropes and visuals follow natively. Taking over continues from the last shared state.
+- When the other player presses, shoots or steps on something in a group they do not own, their game sends a one-time compare-and-swap request; the owner applies it only if its value has not moved on, so triggers from either PC work without rewinding progress.
+- Level 4: the four balance pulleys with their counterweights, four path movers and the tipping bridge. Level 5: four lift pairs and two balances; the button that raises collider 4 and starts the gear machine is shared one-way. Level 7: the bobbing ride, the target gate with its timed run, two press platforms, six path movers and the NPC door. Level 8: the button lift. Level 10: two path movers and the two targets. Level 11: the two bridges lowered by defeating their guards. Level 13: two balances and five moving platforms.
+- Local by design: launch/bounce pads and cannons that throw the local Buzz, per-player challenge attempts (level 4 button sequence, level 8 and level 14 NPC challenges and the level 14 floor-button puzzle), level 11 collision variants keyed to the local player's state, decorative rotation and lighting. Rescued-friend actor callbacks only animate the friend locally; their stages are shared.
+- Both players must update: wire v19 / IPC v18, 8892-byte frames (packets up to 16 KiB). Older clients are rejected.
+- Offline native regressions, managed ABI/transport tests and static native signatures pass. No game launched; live two-player confirmation is still required. Co-op remains experimental and is not complete campaign multiplayer.
+
+Version: 2026.11.7.8
+
+- Level 9 boss synchronized. The boss (slot 0) and the minion pair it releases are owner snapshots; the pair records follow the native pair slots 52fbc8/52fbc4 (slots 7-11) as they change. When the owner's boss is hit, the other PC replays the same native pair spawn, the opening of the current satellite and, once the pair is defeated, the satellite removal, exactly once. The hit count 52fbd4, pair index, phase and orbit state follow the owner. While watching, the release timer is held at 0 around native passes so the other PC can never count a hidden pair as defeated.
+- Level 15 boss synchronized. All three boss actors (slots 0-2) are owner snapshots including their command scripts. Their defeats are decided in per-actor callbacks (42f310/42f530/42f7b0), so while watching, a fight flag of 2 is held at 1 around native passes: a local hit becomes a request the owner applies once and can never defeat an actor on one PC only. The defeat count 530064 and the fight flags follow the owner without rewinding.
+- Engine: a script actor record may follow a native slot variable (validated slot range); no damage is inferred when a record changes actor. Observer guards around native passes are part of each level description.
+- Actor-callback audit (spawn switch 406e8b-407044): the eight quest-actor callbacks of levels 4-14 were already shared; level 15 boss callbacks are covered now; the remaining level 4, 5, 7, 8, 10, 11, 13 and 14 callbacks are listed in CAMPAIGN-COVERAGE.txt as pending.
+- Still not synchronized: level 4 balance pulleys, path movers and tipping bridge, and the remaining mechanisms of levels 5, 7, 8, 10, 11, 13 and 14 (see CAMPAIGN-COVERAGE.txt).
+- Both players must update: wire v18 / IPC v17 (script actor rules now carry a slot range). Frame size unchanged at 6104 bytes. Older clients are rejected.
+- Offline native regressions, managed ABI/transport tests and static native signatures pass. No game launched; live two-player confirmation of these bosses is still required. Co-op remains experimental and is not complete campaign multiplayer.
+
+Version: 2026.11.7.7
+
+- New scripted-encounter engine for levels 3-15 (ScriptSync.h). The first player whose native script starts a boss fight owns it (the host wins a simultaneous start). The owner shares value-only boss snapshots; the other player's hits become deduplicated requests the owner applies exactly once, so both PCs fight the same boss with one shared health/phase. No native pointers cross the network.
+- Bosses synchronized: level 3 (slot 0; phase 52f754, damage 52f6f0 with the 0x3000 reveal and object re-arm replayed once), level 6 (phase 52f9a4, health hits vs 52f98c, attack cycle), level 12 (phase 52fe24, phase-2 hits vs 52fe00; boss projectiles stay local to each player). Defeat snapshots are written once before each PC runs its own native retirement.
+- Rescued-friend reward stages shared in levels 4, 5, 7, 8, 10, 11, 13 and 14: once either player frees the friend, the other PC replays the friend's native exit once; token rewards stay on the existing token sync.
+- Level 4: the three laser targets (colliders 0x16-0x18) and completed button-sequence rounds are shared one-way; the lift converges to the shared target height.
+- Not yet synchronized (mapped, documented in CAMPAIGN-COVERAGE.txt): level 9 and level 15 bosses, balance pulleys/path movers/tipping bridge in level 4, and the remaining level-specific mechanisms of levels 5, 7, 8, 10, 11, 13 and 14. Local by design: hazards and projectiles aimed at the local Buzz, local camera/cutscene regions, HUD markers and decorative effects.
+- Both players must update: wire v17 / IPC v16, 6104-byte frames (script actors + whitelisted script variables). Older clients are rejected.
+- Offline native regressions cover ownership/host priority, hit requests applied once, duplicate packets, no rewind, side effects replayed once, retirement and per-level bounds (native and managed tables compared); managed ABI/transport and static native signatures pass. No game launched; live two-player confirmation of these adapters is still required. Co-op remains experimental and is not complete campaign multiplayer.
+
+Version: 2026.11.7.6
+
+- Complete the remaining Andy's House (level 1) and Backyard (level 2) level-script mechanism mapping from the native level ticks 417680 and 4190c0. Mechanisms already driven by shared state (crib, falling book/object, quest counts, token reveals) were confirmed and left on their existing paths.
+- House: garage vent hazards (417380, phases 52f588/52f568, colliders 12/13) follow the player in the garage, absorbing ordinary lag and correcting only real divergence with the matching collider state. The room-one trigger 52f5a0 (collider 8, mesh 21) is one-way shared progress; previously only the player who triggered it saw it.
+- Backyard: the twin pressure buttons and gate (52f6c8/52f6cc/52f610, colliders 5/6) merge the earliest press, so each player may press one button; gate stages replay once. The toppling board (52f5e4/52f5f0, colliders 2/3/4) merges push progress, then follows the first faller (host on a tie). The rising platform (52f6a8/52f684, collision entry 0, meshes 25/27) keeps height, rider movement and visuals together. The actor-26 challenge stage 52f664 is shared and starts the local actor script when the other player triggered it.
+- Not synchronized by design: bounce pads (local player launch only), decorative effects, and NPC reward dialogue (shared counts already prevent duplicate quest progress).
+- Both players must update: wire v16 / IPC v15, 5504-byte frames. Older clients are rejected.
+- Offline native regressions cover merge direction, duplicate packets, no rewind, side effects replayed once and per-level frame validation; managed ABI/transport and static native signatures pass. No game launched; live two-player confirmation of every mechanism remains required. Co-op remains experimental and is not complete campaign multiplayer.
+
 Version: 2026.11.7.5
 
 - Fix the backyard balance plank visual freeze introduced by restoring an old owner snapshot each tick. Native balance queues rotation for a later physics step; preserve the live collider angle instead of rewinding it before the next tick.

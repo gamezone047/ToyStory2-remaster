@@ -54,3 +54,5 @@ extern "C" __declspec(dllexport) int __cdecl CoopConsoleLevel(int request){
 }
 
 extern "C" __declspec(dllexport) int __cdecl CoopCampaignActive(){return Connected()?1:0;}
+// Console "follow": the other player's current level (0 when unknown).
+extern "C" __declspec(dllexport) int __cdecl CoopPeerLevel(){return Connected()&&remoteFrame.level>=1&&remoteFrame.level<=15?(int)remoteFrame.level:0;}

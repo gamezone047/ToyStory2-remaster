@@ -9,7 +9,7 @@ static DWORD diagnosticLastWrite;
 static LPTOP_LEVEL_EXCEPTION_FILTER previousExceptionFilter;
 static void DiagnosticWrite(HANDLE file,const char* text){if(file!=INVALID_HANDLE_VALUE){DWORD written;WriteFile(file,text,(DWORD)strlen(text),&written,NULL);}}
 static void DiagnosticState(HANDLE file){
- char line[512];wsprintfA(line,"build=2026.11.7.5 pid=%lu role=%s tick=%lu phase=%s actor=%08lx level=%u sequence=%u peerLevel=%u peerSequence=%u helperTick=%lu\r\n",
+ char line[512];wsprintfA(line,"build=2026.11.7.7 pid=%lu role=%s tick=%lu phase=%s actor=%08lx level=%u sequence=%u peerLevel=%u peerSequence=%u helperTick=%lu\r\n",
   GetCurrentProcessId(),localOwner?"client":"host",GetTickCount(),diagnosticPhase,(DWORD)diagnosticActor,cachedLevel,localFrame.sequence,remoteFrame.level,remoteFrame.sequence,helperTick);
  DiagnosticWrite(file,line);
  wsprintfA(line,"host/local position=%ld,%ld,%ld hp=%d peer=%ld,%ld,%ld hp=%d\r\n",localFrame.pose.x,localFrame.pose.y,localFrame.pose.z,localFrame.pose.health,remoteFrame.pose.x,remoteFrame.pose.y,remoteFrame.pose.z,remoteFrame.pose.health);DiagnosticWrite(file,line);

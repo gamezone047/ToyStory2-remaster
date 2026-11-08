@@ -37,6 +37,8 @@ Packaging creates a local archive and verifies it with the updater. Publishing i
 
 Clone this repository and create a feature branch for each change. Your friend can fork the public repository and submit pull requests, or the repository owner can grant collaborator access in GitHub settings. No collaborator invitation is sent by this source upload.
 
+Level 3-15 encounters and script variables are described per level in `controls-src/coop/ScriptSync.h`; their wire whitelist lives in `CoopScriptBounds`/`CoopActorRules` (`CoopFrame.h`) and must be mirrored in `GameFrame.cs` (the managed tests compare both through `native-rules.bin`).
+
 See `controls-src/coop/IMPLEMENTATION-STATUS.txt`, `CAMPAIGN-COVERAGE.txt` and `ReleaseNotes.txt` for current limitations and completed work. Native tests are offline approximations; both players must still validate behavior in-game.
 
 ## Clone the complete game and source

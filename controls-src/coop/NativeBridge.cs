@@ -13,7 +13,7 @@ namespace Toy2Coop {
             mutex=new Mutex(false,Name+"_lock");
             map=MemoryMappedFile.CreateNew(Name,16+2*GameFrame.Size);
             view=map.CreateViewAccessor(0,16+2*GameFrame.Size);
-            view.Write(0,0x32504354u);view.Write(4,14u);
+            view.Write(0,0x32504354u);view.Write(4,23u);
         }
         public GameFrame Exchange(GameFrame remote,bool connected){
             bool entered=false;

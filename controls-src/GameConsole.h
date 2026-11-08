@@ -1,10 +1,12 @@
 // Debug console: input is consumed before native action mapping. Level switches
 // leave through the native level loop, never load resources inside an input hook.
-static bool consoleOpen,consoleKeys[256];static char consoleLine[32],consoleReply[64]="lvl1 to lvl15    unstuck";
+static bool consoleOpen,consoleKeys[256];static char consoleLine[32],consoleReply[64]="lvl1-15  unstuck  coop  follow";
 static int consoleLength;static DWORD consoleSafeAt;static unsigned consoleSafeLevel;
 struct ConsoleSafePoint {int position[3];DWORD time;};static ConsoleSafePoint consoleSafe[32];static unsigned consoleSafeCount;
 static int ParseConsoleCommand(const char* text){
  if(!strcmp(text,"unstuck"))return -1;
+ if(!strcmp(text,"coop"))return -2;
+ if(!strcmp(text,"follow"))return -3;
  if(strncmp(text,"lvl",3)||text[3]<'1'||text[3]>'9')return 0;
  int n=text[3]-'0';unsigned i=4;if(text[i]>='0'&&text[i]<='9')n=n*10+text[i++]-'0';
  return !text[i]&&n>=1&&n<=15?n:0;
@@ -52,7 +54,13 @@ static void ConsoleExecute(){
  int command=ParseConsoleCommand(consoleLine);
  if(command>0)ConsoleQueueLevel(ConsolePeerLevel(command));
  else if(command==-1)strcpy(consoleReply,ConsoleUnstuck()?"moved to nearby clear ground":"no safe nearby ground found");
- else strcpy(consoleReply,"commands    lvl1 to lvl15    unstuck");
+ else if(command==-2){typedef int(__cdecl *StatusFn)(char*,int);StatusFn status=(StatusFn)CoopEntry("CoopStatus");
+  if(!status||!status(consoleReply,sizeof(consoleReply)))strcpy(consoleReply,"co-op not running");}   // details: CoopBridge.log
+ else if(command==-3){typedef int(__cdecl *PeerFn)();PeerFn peer=(PeerFn)CoopEntry("CoopPeerLevel");int level=peer?peer():0;
+  if(!level)strcpy(consoleReply,"other player's level unknown");
+  else if(level==mem<int>(0x88278c))strcpy(consoleReply,"already on the same level");
+  else ConsoleQueueLevel(level);}   // travels only this player to the other's level
+ else strcpy(consoleReply,"lvl1-15  unstuck  coop  follow");
  consoleLength=0;consoleLine[0]=0;
 }
 static bool ConsolePoll(){

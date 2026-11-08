@@ -15,12 +15,15 @@ static void ResetEnemySync(){
  memset(enemyAwakeUntil,0,sizeof(enemyAwakeUntil));memset(enemyRevision,0,sizeof(enemyRevision));memset(enemyReady,0,sizeof(enemyReady));
  memset(localFrame.enemies,0,sizeof(localFrame.enemies));memset(localFrame.enemyAnimations,0,sizeof(localFrame.enemyAnimations));
 }
+// A new life of the slot (host respawn): start pose interpolation and damage observation over.
+static void ResetEnemySlot(unsigned i){if(i<64){enemyReady[i]=false;enemyLastHealth[i]=-1;enemyAwakeUntil[i]=0;}}
 static bool OrdinaryEnemy(unsigned i){
  uintptr_t actor=0x52c840+i*0x9c;
  if((cachedLevel==1||cachedLevel==2)&&i==29)return false;
+ if(ScriptActorSlot(i))return false;
  if(cachedLevel==1&&(i==0||i==2||(i==8&&M<short>(actor+0x14)==5)))return false;
  short model=M<short>(actor+0x14),health=M<short>(actor+0x7e);
- if(model>0&&health>=80&&!enemyModel[i])enemyExcluded[i]=true;
+ if(model>0&&health>=80&&!enemyModel[i]&&!enemyExcluded[i]){enemyExcluded[i]=true;SyncLog("actor slot %u model %d health %d is a special actor (not ordinary enemy sync)",i,model,health);}
  if(enemyExcluded[i])return false;
  if(!enemyModel[i]&&model>0&&model<=255&&health>0&&health<80)enemyModel[i]=model;
  return enemyModel[i]>0&&model==enemyModel[i]&&health>=0&&health<80;

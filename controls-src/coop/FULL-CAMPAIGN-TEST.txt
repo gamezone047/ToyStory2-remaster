@@ -1,0 +1,71 @@
+FULL CO-OP CAMPAIGN TEST - 2026.11.7.13
+
+One run through the whole campaign with two players. Goal: find every mismatch in one pass.
+
+BEFORE YOU START
+- Both PCs: update to the same version with the launcher (the lobby rejects different versions).
+- Host: Multiplayer > Host. Player 2: Join the host's IP. Start game.
+- Delete old logs first so the run is clean:
+  * <game folder>\CoopBridge.log (on both PCs)
+  * %LOCALAPPDATA%\ToyStory2\Diagnostics\host-launcher.log / client-launcher.log
+- Console: press ` (backtick). "coop" shows the sync status line, "follow" takes you to the other
+  player's level, "lvl1".."lvl15" moves both players, "unstuck" frees your Buzz.
+
+WHEN SOMETHING LOOKS WRONG
+- Immediately open the console and type "coop" (this also writes a full status line to the log).
+- Note: level, room/place, what you did, who acted (host or player 2), what each PC showed.
+- Keep playing; one note per problem is enough.
+
+TEST PATTERN FOR EVERY MECHANISM
+- A: the host does it while player 2 watches from nearby.
+- B: player 2 does it while the host watches from nearby.
+- C (where possible): one player does it while the other is far away / in another room, then comes back.
+- Check: same position and state on both PCs, it counts once, nobody gets stuck or launched by the
+  other player's action, riding is smooth for the rider.
+
+LEVEL CHECKLIST
+ 1 Andy's House: RC car, shovel, attic plank, crib targets, Tin Robot boss, garage vents, room-one
+   trigger, book pushing, pickups/tokens.
+ 2 Backyard: RC race (start as each player), mower, duck/pump, tree plank, both balance planks,
+   pop-up army, twin buttons + gate, toppling board, rising platform, challenge, tokens.
+ 3 Boss: start the fight as each player; both attack; boss health/phase/defeat once.
+ 4 three laser targets + lift, button-sequence rounds (each player separately; token
+   once), four balance pulleys with counterweights (ride as each player, watch from the other),
+   four path movers, tipping bridge, three crumbling platforms (step on them as each player while
+   the other watches), rescued friend, NPC challenge (per player).
+ 5 four lifts, two balances, the button that raises the block and starts the
+   gears, the two bubble rides after the button (same bubbles on both PCs; ride one as each player
+   while the other watches), rescued friend. Cannons stay per player.
+ 6 Boss: start as each player; hits from both count once; defeat and level completion.
+ 7 bobbing ride, target gate + timed run, two press platforms (ride the launching one as each
+   player: same height on both PCs), six path movers, NPC door, rescued friend.
+ 8 button lift and the crane prize it carries (grab from each PC: the same prize is grabbed or
+   missed on both, it drops and can be collected once), rescued friend, NPC challenge (per player).
+ 9 Boss: hit the boss from each PC; same satellite opens and same minion pair appears on both;
+   kill minions from different PCs; satellite disappears once; defeat and completion.
+10 floor-switch puzzle (three floor switches; press them from both PCs, the indicators move the
+   same on both; solving opens the gate and starts the two path movers on both), two path movers,
+   two targets, rescued friend.
+11 defeat both bridge guards from different PCs; both bridges lower on both PCs; paint can: mix colours
+   and press the level buttons from each PC, both see the same colour and filling; the paint-route toy
+   takes the same route on both and enables the same platform at its end; four floating platforms
+   (land on them as each player); six pour switches (each pours once, its turret stops on both PCs,
+   a used switch never re-arms); friend.
+12 Boss: start as each player; hits once; defeat.
+13 two balances, five moving platforms (ride as each player), rescued friend.
+14 Lamp puzzle: same lamps/moves on both; presses from each PC count once; run out of moves once;
+   solve; door opens on both. Carousel: the same angle on both PCs (ride it as each player while
+   the other watches). Rescued friend.
+15 Final boss: three bosses; hit each from both PCs; a boss only goes down once for both;
+   final cutscene and completion.
+
+SESSION CHECKS (once during the run)
+- Pause on one PC: both pause; resume.
+- One player dies and the level restarts for them: progress (doors, switches, bosses) must come
+  back, nothing rewinds for the other player.
+- Disconnect player 2's network for ~10 s, reconnect: the game keeps running, the lobby says
+  "Reconnecting...", sync resumes without restarting.
+- Use "follow" after the players end up on different levels.
+
+AFTER THE RUN
+Send me: your notes, both CoopBridge.log files and both launcher logs.
